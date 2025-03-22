@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FaGoogle } from "react-icons/fa"
 import { FaFacebook, FaTwitter } from "react-icons/fa"
 import { Loader2 } from "lucide-react"
+import { getUserByEmail, createUser, verifyCredentials } from "@/lib/supabase"
+import { setUser } from "@/lib/session"
 
 interface LoginFormProps {
   disabled?: boolean
@@ -21,9 +23,13 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [username, setUsername] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
@@ -35,49 +41,118 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
 
     setIsLoading(true)
 
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      // Verify credentials against the user table
+      const user = await verifyCredentials(email, password)
 
-      // For demo purposes, any login works
+      if (!user) {
+        setError("Invalid email or password")
+        setIsLoading(false)
+        return
+      }
+
+      // Store user info for session management
+      setUser(user)
+
+      // Redirect to dashboard
       router.push("/dashboard")
-
-      // In a real app, you would verify credentials here
-      // If login fails, you would set an error message
-    }, 1000)
+    } catch (err: any) {
+      console.error("Login error:", err)
+      setError(err.message || "An error occurred during login")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
     // Basic validation
-    if (!email || !password) {
+    if (!email || !password || !username) {
       setError("Please fill in all required fields")
+      return
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long")
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match")
       return
     }
 
     setIsLoading(true)
 
-    // Simulate registration process
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      // Check if email already exists
+      const existingUser = await getUserByEmail(email)
 
-      // For demo purposes, any registration works
+      if (existingUser) {
+        setError("A user with this email already exists")
+        setIsLoading(false)
+        return
+      }
+
+      // Create new user
+      const displayName = `${firstName} ${lastName}`.trim() || username
+      const newUser = await createUser(username, email, password)
+
+      // Store user info for session management
+      setUser({
+        ...newUser,
+        displayName,
+      })
+
+      // Redirect to dashboard
       router.push("/dashboard")
+    } catch (err: any) {
+      console.error("Registration error:", err)
+      setError(err.message || "An error occurred during registration")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-      // In a real app, you would create a new account here
-    }, 1000)
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    setError("")
+
+    try {
+      // Show a message that Google login is not implemented yet
+      setError("Google login is not implemented yet")
+      setIsLoading(false)
+      return
+
+      // The code below is kept but not executed
+      // const { data, error } = await supabase.auth.signInWithOAuth({
+      //   provider: "google",
+      //   options: {
+      //     redirectTo: `${window.location.origin}/auth/callback`,
+      //   },
+      // })
+
+      // if (error) throw error
+
+      // The redirect will happen automatically
+    } catch (err: any) {
+      console.error("Google login error:", err)
+      setError(err.message || "An error occurred during Google login")
+      setIsLoading(false)
+    }
   }
 
   const handleSocialLogin = (provider: string) => {
-    setIsLoading(true)
+    setError("")
 
-    // Simulate social login process
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/dashboard")
-    }, 1000)
+    if (provider !== "google") {
+      setError(`${provider} login is not implemented yet`)
+      return
+    }
+
+    handleGoogleLogin()
   }
 
   return (
@@ -172,12 +247,16 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first-name">First name</Label>
-              <Input id="first-name" required />
+              <Input id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="last-name">Last name</Label>
-              <Input id="last-name" required />
+              <Input id="last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email-register">Email</Label>
@@ -199,10 +278,17 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <p className="text-xs text-muted-foreground">Password must be at least 6 characters long</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input id="confirm-password" type="password" required />
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
