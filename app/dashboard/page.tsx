@@ -4,14 +4,14 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import FilterPanel from "@/components/filter-panel"
 import UserHeader from "@/components/user-header"
 import ChatMessage from "@/components/chat-message"
-import { Loader2, Filter, ChevronUp, ChevronDown } from "lucide-react"
+import { Loader2, Filter, ChevronUp, ChevronDown, Send } from "lucide-react"
 
 export default function Dashboard() {
   const [query, setQuery] = useState("")
@@ -176,30 +176,53 @@ function ChatInterface({
   chatContainerRef,
 }: ChatInterfaceProps) {
   const placeholder = language === "en" ? "Type your legal question here..." : "Hüquqi sualınızı buraya yazın..."
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea as user types
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to auto to get the correct scrollHeight
+      textareaRef.current.style.height = "auto"
+      // Set the height to scrollHeight to expand the textarea
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
+    }
+  }, [query])
+
+  // Handle Enter key to submit form (Shift+Enter for new line)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      if (query.trim()) {
+        handleSearch(e as unknown as React.FormEvent)
+      }
+    }
+  }
 
   return (
     <>
       {/* Chat history area */}
       <div
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-2xl mx-auto w-full"
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
         style={{ overflowX: "hidden" }}
-      >
-        {chatHistory.map((message, index) => (
-          <ChatMessage
-            key={index}
-            type={message.type}
-            content={message.content}
-            language={language}
-            isDetailed={isDetailed}
-          />
-        ))}
+        >
+          <div className="max-w-3xl mx-auto w-full">
+            {chatHistory.map((message, index) => (
+              <ChatMessage
+                key={index}
+                type={message.type}
+                content={message.content}
+                language={language}
+                isDetailed={isDetailed}
+              />
+            ))}
 
-        {isLoading && (
-          <div className="flex justify-center items-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            {isLoading && (
+              <div className="flex justify-center items-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            )}
           </div>
-        )}
       </div>
 
       {/* Settings bar */}
@@ -235,22 +258,32 @@ function ChatInterface({
       <div className="border-t bg-white p-4">
         <div className="container max-w-2xl mx-auto">
           <form onSubmit={handleSearch} className="relative">
-            <Input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={placeholder}
-              className="w-full py-3 pr-24 text-base rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
-              disabled={isLoading}
-            />
-
-            <Button
-              type="submit"
-              className="absolute right-1 top-1 bottom-1 rounded-md"
-              disabled={isLoading || !query.trim()}
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Send" : "Göndər"}
-            </Button>
+            <div className="relative rounded-md border shadow-sm focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+              <textarea
+                ref={textareaRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={1}
+                className="w-full py-3 px-4 pr-12 text-base rounded-md border-0 resize-none focus:outline-none focus:ring-0"
+                disabled={isLoading}
+                style={{ minHeight: "44px", maxHeight: "150px" }}
+              />
+              <Button
+                type="submit"
+                size="icon"
+                className="absolute right-2 bottom-2 rounded-md h-8 w-8"
+                disabled={isLoading || !query.trim()}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 ml-1 text-center">
+              {language === "en"
+                ? "Press Enter to send, Shift+Enter for new line"
+                : "Göndərmək üçün Enter, yeni sətir üçün Shift+Enter basın"}
+            </p>
           </form>
         </div>
       </div>

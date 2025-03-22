@@ -31,6 +31,7 @@ export default function UserHeader({ userRole, language, onLanguageToggle }: Use
 
         <div className="flex items-center gap-4">
           <Button
+            className="px-2 gap-0 w-auto"
             variant="ghost"
             size="icon"
             onClick={onLanguageToggle}
