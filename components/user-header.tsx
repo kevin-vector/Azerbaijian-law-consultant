@@ -20,8 +20,8 @@ export default function UserHeader({ userRole, language, onLanguageToggle }: Use
   }
 
   return (
-    <header className="border-b bg-background">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="border-b bg-background sticky top-0 z-10">
+      <div className="container max-w-5xl mx-auto flex h-14 items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{language === "en" ? "Legal Database" : "Hüquq Verilənlər Bazası"}</h1>
           <span className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs">

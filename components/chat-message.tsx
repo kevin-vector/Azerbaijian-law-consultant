@@ -2,10 +2,8 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { HelpCircle, User, Bot } from "lucide-react"
+import { HelpCircle } from "lucide-react"
 
 interface ChatMessageProps {
   type: "user" | "system"
@@ -84,35 +82,50 @@ export default function ChatMessage({ type, content, language, isDetailed }: Cha
   const responseData = language === "en" ? sampleResponse.en : sampleResponse.az
   const responseText = isDetailed ? responseData.detailed : responseData.brief
 
+  // Restore the original bubble design for user messages while keeping the right alignment
   if (type === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-none px-4 py-2 max-w-[80%] flex items-start gap-3">
-          <User className="h-5 w-5 mt-1 shrink-0" />
+      <div className="flex justify-end mb-4">
+        <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-none px-4 py-2 max-w-[30%]">
           <div>{content}</div>
         </div>
       </div>
     )
   }
 
-  // For system messages
+  // For system messages with tax query - restore the special card design but keep full width
   if (isTaxQuery && type === "system") {
     // This is our special tax response
     return (
-      <div className="flex justify-start">
-        <Card className="max-w-[85%] shadow-sm border-l-4 border-l-primary">
+      <div className="mb-6 w-full">
+        <div className="max-w-full shadow-sm border-l-4 border-l-primary bg-muted rounded-lg">
           <div className="p-4 space-y-3">
             <div className="flex items-start gap-3">
-              <Bot className="h-5 w-5 mt-1 text-primary shrink-0" />
+              <div className="h-5 w-5 mt-1 text-primary shrink-0">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-bot"
+                >
+                  <path d="M12 8V4H8" />
+                  <rect width="16" height="12" x="4" y="8" rx="2" />
+                  <path d="M2 14h2" />
+                  <path d="M20 14h2" />
+                  <path d="M15 13v2" />
+                  <path d="M9 13v2" />
+                </svg>
+              </div>
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className="text-xs">
-                    {language === "en" ? "Relevance: High" : "Uyğunluq: Yüksək"}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {language === "en" ? "Date: 03/21/2025" : "Tarix: 21/03/2025"}
-                  </Badge>
-                </div>
+                <p className="text-muted-foreground italic mb-4">
+                  {language === "en"
+                    ? "If a branch office of a foreign company receives damages under a court decision and wishes to transfer the amount in USD, what taxes are due?"
+                    : "Əgər xarici şirkətin filialı məhkəmə qərarı əsasında zərər alırsa və məbləği USD ilə köçürmək istəyirsə, hansı vergilər ödənilməlidir?"}
+                </p>
 
                 <ul className="space-y-2 list-disc pl-5">
                   {responseText.map((item, index) => (
@@ -175,16 +188,15 @@ export default function ChatMessage({ type, content, language, isDetailed }: Cha
               </Dialog>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     )
   }
 
-  // Regular system message
+  // Regular system message - restore the original bubble design but keep full width
   return (
-    <div className="flex justify-start">
-      <div className="bg-muted rounded-2xl rounded-tl-none px-4 py-2 max-w-[80%] flex items-start gap-3">
-        <Bot className="h-5 w-5 mt-1 text-primary shrink-0" />
+    <div className="flex justify-start mb-4 w-full">
+      <div className="bg-muted rounded-2xl rounded-tl-none px-4 py-2 max-w-[80%]">
         <div>{content}</div>
       </div>
     </div>

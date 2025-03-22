@@ -97,7 +97,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-gray-50">
       <UserHeader userRole={userRole} language={language} onLanguageToggle={toggleLanguage} />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -159,7 +159,7 @@ interface ChatInterfaceProps {
   isDetailed: boolean
   setIsDetailed: (detailed: boolean) => void
   chatHistory: Array<{ type: "user" | "system"; content: string }>
-  chatContainerRef: React.RefObject<HTMLDivElement>
+  chatContainerRef: React.RefObject<HTMLDivElement | null>
 }
 
 function ChatInterface({
@@ -180,7 +180,11 @@ function ChatInterface({
   return (
     <>
       {/* Chat history area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+      <div
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-2xl mx-auto w-full"
+        style={{ overflowX: "hidden" }}
+      >
         {chatHistory.map((message, index) => (
           <ChatMessage
             key={index}
@@ -199,8 +203,8 @@ function ChatInterface({
       </div>
 
       {/* Settings bar */}
-      <div className="border-t border-b bg-background/80 backdrop-blur-sm">
-        <div className="container max-w-4xl mx-auto px-4 py-2 flex justify-between items-center">
+      <div className="border-t border-b bg-white">
+        <div className="container max-w-2xl mx-auto px-4 py-2 flex justify-between items-center">
           <Button
             variant="ghost"
             size="sm"
@@ -221,28 +225,28 @@ function ChatInterface({
         </div>
 
         {showFilters && (
-          <div className="container max-w-4xl mx-auto px-4 py-2">
+          <div className="container max-w-2xl mx-auto px-4 py-2">
             <FilterPanel language={language} />
           </div>
         )}
       </div>
 
       {/* Fixed input area at bottom */}
-      <div className="border-t bg-background p-4">
-        <div className="container max-w-4xl mx-auto">
+      <div className="border-t bg-white p-4">
+        <div className="container max-w-2xl mx-auto">
           <form onSubmit={handleSearch} className="relative">
             <Input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={placeholder}
-              className="w-full py-6 pr-24 text-base rounded-full"
+              className="w-full py-3 pr-24 text-base rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
               disabled={isLoading}
             />
 
             <Button
               type="submit"
-              className="absolute right-1 top-1 bottom-1 rounded-full"
+              className="absolute right-1 top-1 bottom-1 rounded-md"
               disabled={isLoading || !query.trim()}
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Send" : "Göndər"}
@@ -260,8 +264,8 @@ interface AdminDashboardProps {
 
 function AdminDashboard({ language }: AdminDashboardProps) {
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="bg-card rounded-lg p-6 shadow-sm">
+    <div className="space-y-8 max-w-2xl mx-auto">
+      <div className="bg-white rounded-lg p-6 shadow-sm">
         <h2 className="text-2xl font-bold mb-4">
           {language === "en" ? "Manual Data Entry" : "Əl ilə məlumat daxil edilməsi"}
         </h2>
@@ -282,7 +286,7 @@ function AdminDashboard({ language }: AdminDashboardProps) {
         </div>
       </div>
 
-      <div className="bg-card rounded-lg p-6 shadow-sm">
+      <div className="bg-white rounded-lg p-6 shadow-sm">
         <h2 className="text-2xl font-bold mb-4">
           {language === "en" ? "Scraping Management" : "Məlumat toplama idarəetməsi"}
         </h2>
