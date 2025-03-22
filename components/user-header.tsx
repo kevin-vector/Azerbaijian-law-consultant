@@ -67,6 +67,7 @@ export default function UserHeader({ userRole, language, onLanguageToggle, userE
 
         <div className="flex items-center gap-4">
           <Button
+            className="px-4 w-auto"
             variant="ghost"
             size="icon"
             onClick={onLanguageToggle}
