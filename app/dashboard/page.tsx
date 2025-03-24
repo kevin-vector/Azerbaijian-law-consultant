@@ -153,95 +153,95 @@ export default function Dashboard() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Chat history area */}
-          <div
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
-            style={{ overflowX: "hidden" }}
-          >
-            <div className="max-w-3xl mx-auto w-full">
-              {chatHistory.map((message, index) => (
-                <ChatMessage
-                  key={index}
-                  type={message.type}
-                  content={message.content}
-                  language={language}
-                  isDetailed={isDetailed}
+        {/* Chat history area */}
+        <div
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+          style={{ overflowX: "hidden" }}
+        >
+          <div className="max-w-4xl mx-auto w-full">
+            {chatHistory.map((message, index) => (
+            <ChatMessage
+              key={index}
+              type={message.type}
+              content={message.content}
+              language={language}
+              isDetailed={isDetailed}
+            />
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-center items-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
+          </div>
+        </div>
+
+        {/* Settings bar */}
+        <div className="border-t border-b bg-white">
+          <div className="container max-w-2xl mx-auto px-4 py-2 flex justify-between items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-1"
+            >
+              <Filter className="h-4 w-4" />
+              {language === "en" ? "Filters" : "Filtrlər"}
+              {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
+
+            <div className="flex items-center space-x-2">
+              <Switch id="detail-mode" checked={isDetailed} onCheckedChange={setIsDetailed} />
+              <Label htmlFor="detail-mode" className="text-sm">
+                {language === "en" ? (isDetailed ? "Detailed" : "Brief") : isDetailed ? "Ətraflı" : "Qısa"}
+              </Label>
+            </div>
+          </div>
+
+          {showFilters && (
+            <div className="container max-w-2xl mx-auto px-4 py-2">
+              <FilterPanel language={language} />
+            </div>
+          )}
+        </div>
+
+        {/* Fixed input area at bottom */}
+        <div className="border-t bg-white p-4">
+          <div className="container max-w-2xl mx-auto">
+            <form onSubmit={handleSearch} className="relative">
+              <div className="relative rounded-md border shadow-sm focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                <textarea
+                  ref={textareaRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    language === "en" ? "Type your legal question here..." : "Hüquqi sualınızı buraya yazın..."
+                  }
+                  rows={1}
+                  className="w-full py-3 px-4 pr-12 text-base rounded-md border-0 resize-none focus:outline-none focus:ring-0"
+                  disabled={isLoading}
+                  style={{ minHeight: "44px", maxHeight: "150px" }}
                 />
-              ))}
-
-              {isLoading && (
-                <div className="flex justify-center items-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Settings bar */}
-          <div className="border-t border-b bg-white">
-            <div className="container max-w-2xl mx-auto px-4 py-2 flex justify-between items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-1"
-              >
-                <Filter className="h-4 w-4" />
-                {language === "en" ? "Filters" : "Filtrlər"}
-                {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-
-              <div className="flex items-center space-x-2">
-                <Switch id="detail-mode" checked={isDetailed} onCheckedChange={setIsDetailed} />
-                <Label htmlFor="detail-mode" className="text-sm">
-                  {language === "en" ? (isDetailed ? "Detailed" : "Brief") : isDetailed ? "Ətraflı" : "Qısa"}
-                </Label>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="absolute right-2 bottom-2 rounded-md h-8 w-8"
+                  disabled={isLoading || !query.trim()}
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
               </div>
-            </div>
-
-            {showFilters && (
-              <div className="container max-w-2xl mx-auto px-4 py-2">
-                <FilterPanel language={language} />
-              </div>
-            )}
+              <p className="text-xs text-muted-foreground mt-1 ml-1 text-center">
+                {language === "en"
+                  ? "Press Enter to send, Shift+Enter for new line"
+                  : "Göndərmək üçün Enter, yeni sətir üçün Shift+Enter basın"}
+              </p>
+            </form>
           </div>
-
-          {/* Fixed input area at bottom */}
-          <div className="border-t bg-white p-4">
-            <div className="container max-w-2xl mx-auto">
-              <form onSubmit={handleSearch} className="relative">
-                <div className="relative rounded-md border shadow-sm focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                  <textarea
-                    ref={textareaRef}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={
-                      language === "en" ? "Type your legal question here..." : "Hüquqi sualınızı buraya yazın..."
-                    }
-                    rows={1}
-                    className="w-full py-3 px-4 pr-12 text-base rounded-md border-0 resize-none focus:outline-none focus:ring-0"
-                    disabled={isLoading}
-                    style={{ minHeight: "44px", maxHeight: "150px" }}
-                  />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="absolute right-2 bottom-2 rounded-md h-8 w-8"
-                    disabled={isLoading || !query.trim()}
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 ml-1 text-center">
-                  {language === "en"
-                    ? "Press Enter to send, Shift+Enter for new line"
-                    : "Göndərmək üçün Enter, yeni sətir üçün Shift+Enter basın"}
-                </p>
-              </form>
-            </div>
-          </div>
+        </div>
       </main>
     </div>
   )
