@@ -6,8 +6,8 @@ export const ruleIndex = pinecone.Index('rule');
 export const postIndex = pinecone.Index('post');
 
 async function listIndexes() {
-const indexes = await pinecone.listIndexes();
-console.log('Available indexes:', indexes);
+    const indexes = await pinecone.listIndexes();
+    console.log('Available indexes:', indexes);
 }
   
 // listIndexes();

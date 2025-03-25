@@ -50,3 +50,24 @@ export async function verifyCredentials(email: string, password: string) {
   return data
 }
 
+export async function manualInput(title: string, content: string){
+  const id_supa = await supabase.from("Ajerbaijian_rule").select("id").order("id", { ascending: false }).limit(1).single()
+  console.log(id_supa)
+  const id = id_supa.data? Number(id_supa.data.id) + 1 : 1
+  const { data, error } = await supabase
+    .from("Ajerbaijian_rule")
+    .insert([
+      {
+        id,
+        title,
+        content,
+      },
+    ])
+    .select()
+
+  if (error) {
+    console.error("Error creating manual input:", error)
+    throw error
+  }
+  return data[0]
+}

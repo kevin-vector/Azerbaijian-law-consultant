@@ -136,10 +136,7 @@ export async function POST(req: NextRequest) {
   const { query } = await req.json();
   if (!query) return NextResponse.json({ error: 'Query is required' }, { status: 400 });
 
-  const mode = query.toLowerCase().startsWith('summarized:') ? 'Summarized' : 'Detailed';
-  const cleanQuery = mode === 'Summarized' ? query.slice(11) : query;
-
-  const queryEmbedding = await getEmbedding(cleanQuery);
+  const queryEmbedding = await getEmbedding(query);
 
   const resultsLaw = await fetchResults(lawIndex, queryEmbedding, 'law');
   const resultsPost = await fetchResults(postIndex, queryEmbedding, 'post');
@@ -152,7 +149,7 @@ export async function POST(req: NextRequest) {
     resultsRule,
     resultsLaw,
     resultsPost,
-    cleanQuery,
+    query,
     TPM_LIMIT
   );
 
@@ -161,7 +158,7 @@ export async function POST(req: NextRequest) {
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: cleanQuery },
+        { role: 'user', content: query },
       ],
       temperature: 0.7,
       max_tokens: 1000,
