@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (insertError) {
     console.error('Error inserting');
   } else {
-    console.log(`successfully registered post scraping`);
+    console.log(`successfully registered law scraping`);
   }
   try {
 

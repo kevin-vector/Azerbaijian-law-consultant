@@ -18,6 +18,12 @@ async function scrapeAndInsertPosts() {
   let i = 0;
   for (i = post![0]?.last_one; true; i++) {
     console.log(`Processing page ${i}`);
+    const { error: insertError } = await supabase.from('Scrape').insert({source: 'post', status: 'running', last_one: i});
+    if (insertError) {
+      console.error('Error inserting');
+    } else {
+      console.log(`successfully registered post scraping`);
+    }
     const url = `https://www.muhasibat.az/author/adminmuh/page/${i}`;
     try {
       const response = await axios.get(url);
@@ -126,7 +132,7 @@ async function scrapeAndInsertPosts() {
   if (insertedError) {
     console.error('Error inserting');
   } else {
-    console.log(`successfully registered post scraping`);
+    console.log(`successfully registered post scraping completed`);
   }
 }
 
