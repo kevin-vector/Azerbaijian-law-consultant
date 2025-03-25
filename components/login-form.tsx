@@ -30,92 +30,90 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
   const [lastName, setLastName] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
-    // Basic validation
     if (!email || !password) {
-      setError("Please enter both email and password")
-      return
+      setError("Please enter both email and password");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      // Verify credentials against the user table
-      const user = await verifyCredentials(email, password)
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", email, password }),
+      });
+      const data = await res.json();
 
-      if (!user) {
-        setError("Invalid email or password")
-        setIsLoading(false)
-        return
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Login failed");
       }
 
-      // Store user info for session management
-      setUser(user)
+      // Assuming setUser stores user data in session (e.g., localStorage or context)
+      setUser(data.user);
 
-      // Redirect to dashboard
-      router.push("/dashboard")
+      router.push("/dashboard");
     } catch (err: any) {
-      console.error("Login error:", err)
-      setError(err.message || "An error occurred during login")
+      console.error("Login error:", err);
+      setError(err.message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
-    // Basic validation
     if (!email || !password || !username) {
-      setError("Please fill in all required fields")
-      return
+      setError("Please fill in all required fields");
+      return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long")
-      return
+      setError("Password must be at least 6 characters long");
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
+      setError("Passwords do not match");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      // Check if email already exists
-      const existingUser = await getUserByEmail(email)
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "register",
+          email,
+          username,
+          password,
+          firstName,
+          lastName,
+        }),
+      });
+      const data = await res.json();
 
-      if (existingUser) {
-        setError("A user with this email already exists")
-        setIsLoading(false)
-        return
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Registration failed");
       }
 
-      // Create new user
-      const displayName = `${firstName} ${lastName}`.trim() || username
-      const newUser = await createUser(username, email, password)
-
-      // Store user info for session management
-      setUser({
-        ...newUser,
-        displayName,
-      })
-
-      // Redirect to dashboard
-      router.push("/dashboard")
+      setUser(data.user);
+      router.push("/dashboard");
     } catch (err: any) {
-      console.error("Registration error:", err)
-      setError(err.message || "An error occurred during registration")
+      console.error("Registration error:", err);
+      setError(err.message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
+  };
+  
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     setError("")

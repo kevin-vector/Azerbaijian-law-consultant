@@ -21,28 +21,25 @@ export default function Dashboard() {
   const [isDetailed, setIsDetailed] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [userRole, setUserRole] = useState("user")
-  const [chatHistory, setChatHistory] = useState<Array<{ type: "user" | "system"; content: string }>>([])
+  const [chatHistory, setChatHistory] = useState<Array<{ type: "user" | "system"; query: string, response: string }>>([])
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [user, setUser] = useState<any>(null)
+  const [error, setError] = useState('');
 
-  // Sample query for demonstration
   const sampleQuery =
     language === "en"
       ? "If a branch office of a foreign company receives damages under a court decision and wishes to transfer the amount in USD, what taxes are due?"
       : "Əgər xarici şirkətin filialı məhkəmə qərarı əsasında zərər alırsa və məbləği USD ilə köçürmək istəyirsə, hansı vergilər ödənilməlidir?"
 
-  // Load user data on component mount
   useEffect(() => {
     const userData = getUser()
     if (!userData) {
-      // Redirect to login if no user is found
       router.push("/")
       return
     }
 
     setUser(userData)
-    // Set user role from the user object
     setUserRole(userData.role || "user")
   }, [router])
 
@@ -53,12 +50,9 @@ export default function Dashboard() {
     }
   }, [chatHistory])
 
-  // Auto-resize textarea as user types
   useEffect(() => {
     if (textareaRef.current) {
-      // Reset height to auto to get the correct scrollHeight
       textareaRef.current.style.height = "auto"
-      // Set the height to scrollHeight to expand the textarea
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
     }
   }, [query])
@@ -69,10 +63,11 @@ export default function Dashboard() {
       setChatHistory([
         {
           type: "system",
-          content:
+          query:
             language === "en"
               ? `Welcome ${user.username || user.email}! How can I help you today?`
               : `Xoş gəlmisiniz ${user.username || user.email}! Bu gün sizə necə kömək edə bilərəm?`,
+          response:""
         },
       ])
     }
@@ -89,51 +84,41 @@ export default function Dashboard() {
   }
 
   // Simulate search functionality
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
 
-    // Add user query to chat history
-    setChatHistory([...chatHistory, { type: "user", content: query }])
+    setChatHistory([...chatHistory, { type: "user", query: query, response: "" }])
     setIsLoading(true)
 
-    // Simulate API call delay
-    setTimeout(() => {
-      setIsLoading(false)
-
-      // For demo purposes, if the query contains "tax" or "vergi", use the sample response
-      // Otherwise, provide a generic response
-      if (query.toLowerCase().includes("tax") || query.toLowerCase().includes("vergi")) {
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            type: "system",
-            content: sampleQuery,
-          },
-        ])
-      } else {
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            type: "system",
-            content:
-              language === "en"
-                ? "I don't have specific information about that query. Could you please provide more details or ask about tax regulations?"
-                : "Bu sorğu haqqında xüsusi məlumatım yoxdur. Zəhmət olmasa, daha ətraflı məlumat verin və ya vergi qaydaları haqqında soruşun?",
-          },
-        ])
-      }
-
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);      
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          type: "system",
+          query: query,
+          response: data.response
+        },
+      ])
       setQuery("")
-    }, 1500)
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  // Toggle language
   const toggleLanguage = () => {
     setLanguage(language === "en" ? "az" : "en")
   }
 
-  // If user is not loaded yet, show loading
   if (!user) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -164,7 +149,8 @@ export default function Dashboard() {
             <ChatMessage
               key={index}
               type={message.type}
-              content={message.content}
+              query={message.query}
+              response={message.response}
               language={language}
               isDetailed={isDetailed}
             />
@@ -172,6 +158,7 @@ export default function Dashboard() {
 
           {isLoading && (
             <div className="flex justify-center items-center py-4">
+              Thinking
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           )}
@@ -180,8 +167,8 @@ export default function Dashboard() {
 
         {/* Settings bar */}
         <div className="border-t border-b bg-white">
-          <div className="container max-w-2xl mx-auto px-4 py-2 flex justify-between items-center">
-            <Button
+          <div className="container max-w-2xl mx-auto px-4 py-2 flex justify-end items-center">
+            {/* <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
@@ -190,7 +177,7 @@ export default function Dashboard() {
               <Filter className="h-4 w-4" />
               {language === "en" ? "Filters" : "Filtrlər"}
               {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </Button>
+            </Button> */}
 
             <div className="flex items-center space-x-2">
               <Switch id="detail-mode" checked={isDetailed} onCheckedChange={setIsDetailed} />

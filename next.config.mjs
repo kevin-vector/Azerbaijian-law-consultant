@@ -21,6 +21,22 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  webpack: (config, { isServer }) => {
+    // Add a rule to handle .wasm files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'asset/resource',
+    });
+
+    // Ensure the WASM file is copied to the output directory
+    if (isServer) {
+      config.output.webassemblyModuleFilename = 'static/wasm/[modulehash].wasm';
+    } else {
+      config.output.webassemblyModuleFilename = 'static/wasm/[modulehash].wasm';
+    }
+
+    return config;
+  },
 }
 
 mergeConfig(nextConfig, userConfig)
