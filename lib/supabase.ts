@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import bcrypt from "bcryptjs";
 
 // Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -40,14 +41,17 @@ export async function createUser(username: string, email: string, password: stri
 }
 
 export async function verifyCredentials(email: string, password: string) {
-  const { data, error } = await supabase.from("user").select("*").eq("email", email).eq("password", password).single()
+  const { data:user, error } = await supabase.from("user").select("*").eq("email", email).single()
 
   if (error) {
     console.error("Error verifying credentials:", error)
     return null
   }
-
-  return data
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return null;
+  }
+  return user
 }
 
 export async function manualInput(title: string, content: string){

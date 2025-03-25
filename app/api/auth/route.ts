@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ user });
 
       case 'register':
+        console.log('password:', password)
         if (!email || !password || !username) {
           return NextResponse.json({ error: 'Email, password, and username are required' }, { status: 400 });
         }

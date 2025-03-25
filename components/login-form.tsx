@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import bcrypt from 'bcryptjs';
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -85,7 +85,9 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
 
     setIsLoading(true);
 
-    try {
+    try {      
+      const encryptedPassword = await bcrypt.hash(password, 10);
+      console.log("Encrypted password:", encryptedPassword)
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +95,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
           action: "register",
           email,
           username,
-          password,
+          password: encryptedPassword,
           firstName,
           lastName,
         }),
@@ -196,7 +198,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
             )}
           </Button>
 
-          <div className="relative my-6">
+          {/* <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -236,7 +238,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
               <FaTwitter className="mr-2" />
               Twitter
             </Button>
-          </div>
+          </div> */}
         </form>
       </TabsContent>
 
@@ -299,7 +301,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
             )}
           </Button>
 
-          <div className="relative my-6">
+          {/* <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -339,7 +341,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
               <FaTwitter className="mr-2" />
               Twitter
             </Button>
-          </div>
+          </div> */}
         </form>
       </TabsContent>
     </Tabs>
