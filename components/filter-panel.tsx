@@ -11,12 +11,15 @@ import { CalendarIcon } from "lucide-react"
 
 interface FilterPanelProps {
   language: string
+  startDate: Date | undefined
+  setStartDate: (date: Date | undefined) => void
+  endDate: Date | undefined
+  setEndDate: (date: Date | undefined) => void
+  document: string
+  setDocument: (document: string) => void
 }
 
-export default function FilterPanel({ language }: FilterPanelProps) {
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
-  const [document, setDocument] = useState("all")
+export default function FilterPanel({ language, startDate, setStartDate, endDate, setEndDate, document, setDocument }: FilterPanelProps) {
 
   const handleClearFilters = () => {
     setStartDate(undefined)

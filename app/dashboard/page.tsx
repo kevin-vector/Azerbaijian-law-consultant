@@ -26,6 +26,9 @@ export default function Dashboard() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [document, setDocument] = useState("all")
 
   const sampleQuery =
     language === "en"
@@ -189,7 +192,7 @@ export default function Dashboard() {
 
           {showFilters && (
             <div className="container max-w-2xl mx-auto px-4 py-2">
-              <FilterPanel language={language} />
+              <FilterPanel language={language} startDate={startDate} setStartDate= {setStartDate} endDate={endDate} setEndDate={setEndDate} document={document} setDocument={setDocument} />
             </div>
           )}
         </div>
