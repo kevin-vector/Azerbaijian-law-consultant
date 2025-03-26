@@ -14,21 +14,22 @@ const basePrompt = `You are an advanced legal analysis AI built to assist users 
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-- 'Rules': {}
-- 'Laws': {}
-- 'Posts': {}
+- 'Azerbaijian Tax Code': {}
+- 'Azerbaijian Law': {}
+- 'Social Posts': {}
 
 Follow these instructions for every response:
 1. Analyze the provided data and generate structured responses in bullet-point format.
 2. Ensure responses are:
    - Logically coherent and legally accurate based on the data.
-   - Specific to the provided data, avoiding vague or generic answers.
-   - Optionally include citations to the source material (e.g., 'Rule: [title/section]', 'Law: [title/date]', 'Post: [summary/ID]') if relevant to support your reasoning—include them only when they add value or clarity.
+   - Specificity to the query, citing exact provisions (e.g., 'Law: Tax Code, Article 13.2.1') with translated text when applicable, avoiding vague or generic answers.
+   - Mandatory citations to source material (e.g., 'Azerbaijian Tax Code: [title/section]', 'Azerbaijian Law: [title/date]', 'Social Posts: [title]') when answering queries about legal governance or provisions.
 3. For every query, provide two response sections in the following order:
-   - '[Detailed Response]': Comprehensive answers with in-depth analysis, explanations, and examples from the data.
+   - '[Detailed Response]': Comprehensive answers with in-depth analysis, explanations, and examples from the data. This part must be very specific and highly detailed.
    - '[Summarized Response]': Concise answers focusing on key points without excessive elaboration.
-4. If the user asks for an explanation of a legal concept, provide a clear and accurate explanation grounded in the data, using examples where applicable, in both sections.
+4. Must explain every legal concept, providing clear, accurate explanations grounded in the data, with examples.
 5. If the query cannot be fully answered with the provided data due to insufficient or irrelevant content, do not speculate or provide incomplete answers. Instead, respond with: '{}' (translated to the appropriate language) in both sections.
+6. Do not include disclaimers like "consult a legal professional" unless explicitly requested.
 
 For this task, the user’s query is provided separately. Analyze the provided dataset and respond with both a Detailed and a Summarized response, clearly separated by their respective headers '[Detailed Response]' and '[Summarized Response]'`;
 
@@ -68,7 +69,7 @@ async function fetchResults(index: any, queryEmbedding: number[], indexName: str
   }
 }
 
-function adjustPromptTokens(
+async function adjustPromptTokens(
   basePrompt: string,
   resultsRule: string[],
   resultsLaw: string[],
@@ -77,7 +78,8 @@ function adjustPromptTokens(
   tpmLimit: number
 ) {
   const detected_lang = franc(query);
-  const lang = detected_lang === 'eng' || detected_lang == "und" ? 'English' : 'Azerbaijani';
+  // const lang = detected_lang === 'eng' || detected_lang == "und" ? 'English' : 'Azerbaijani';
+  const lang = detected_lang === 'azj' ? 'Azerbaijani' : 'English';
   console.log(`Detected language: ${franc(query)}`);
   const noAnswerMsg =
     lang === 'English' ? 'Please contact a professional' : 'Zəhmət olmasa, peşəkarla əlaqə saxlayın';
@@ -88,15 +90,15 @@ function adjustPromptTokens(
     .replace('{}', resultsPost.join(', '))
     .replace('{}', noAnswerMsg);
   let fullInput = systemPrompt + '\n' + query;
-  let tokenCount = getTokenCount(fullInput);
+  let tokenCount = await getTokenCount(fullInput);
 
-  if (tokenCount <= tpmLimit) return systemPrompt;
+  if (tokenCount !== null && tokenCount <= tpmLimit) return systemPrompt;
 
   let adjustedLaw = [...resultsLaw];
   let adjustedPost = [...resultsPost];
   let adjustedRule = [...resultsRule];
 
-  while (adjustedPost.length && tokenCount > tpmLimit) {
+  while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
     adjustedPost.shift();
     systemPrompt = basePrompt.replace('{}', lang)
       .replace('{}', adjustedRule.join(', '))
@@ -104,10 +106,10 @@ function adjustPromptTokens(
       .replace('{}', adjustedPost.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
-    tokenCount = getTokenCount(fullInput);
+    tokenCount = await getTokenCount(fullInput);
   }
 
-  while (adjustedLaw.length && tokenCount > tpmLimit) {
+  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
     adjustedLaw.shift();
     systemPrompt = basePrompt.replace('{}', lang)
       .replace('{}', adjustedRule.join(', '))
@@ -115,10 +117,10 @@ function adjustPromptTokens(
       .replace('{}', adjustedPost.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
-    tokenCount = getTokenCount(fullInput);
+    tokenCount = await getTokenCount(fullInput);
   }
 
-  while (adjustedRule.length && tokenCount > tpmLimit) {
+  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
     adjustedRule.shift();
     systemPrompt = basePrompt.replace('{}', lang)
       .replace('{}', adjustedRule.join(', '))
@@ -126,7 +128,7 @@ function adjustPromptTokens(
       .replace('{}', adjustedPost.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
-    tokenCount = getTokenCount(fullInput);
+    tokenCount = await getTokenCount(fullInput);
   }
 
   return systemPrompt;
@@ -144,7 +146,7 @@ export async function POST(req: NextRequest) {
   
   console.log("started prompt adjustion")
 
-  const systemPrompt = adjustPromptTokens(
+  const systemPrompt = await adjustPromptTokens(
     basePrompt,
     resultsRule,
     resultsLaw,
@@ -160,8 +162,8 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: query },
       ],
-      temperature: 0.7,
-      max_tokens: 1000,
+      // temperature: 0.7,
+      max_tokens: 10000,
     });
     const aiResponse = response.choices[0].message.content;
     return NextResponse.json({ response: aiResponse });
