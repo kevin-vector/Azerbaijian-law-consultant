@@ -1,4 +1,4 @@
-import schedule from 'node-schedule';
+import * as schedule from 'node-schedule';
 import { supabase } from '../lib/supabase';
 
 schedule.scheduleJob('0 8 * * *', async () => {

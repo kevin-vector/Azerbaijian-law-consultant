@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import bcrypt from "bcryptjs";
+import * as bcrypt from "bcryptjs";
 
 // Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.SUPABASE_URL!;
