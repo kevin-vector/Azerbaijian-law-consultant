@@ -14,12 +14,13 @@ const basePrompt = `You are an advanced legal analysis AI built to assist users 
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-- 'Azerbaijian Tax Code': {}
+
 - 'Azerbaijian Law': {}
-- 'Social Posts': {}
+
+These data are written in the Azerbaijani language, so you should interpret them very carefully. You need not to make any errors when understanding these in English because it could be changed when you try to translate these.
 
 Follow these instructions for every response:
-1. Analyze the provided data and generate structured responses in bullet-point format.
+1. Analyze the provided data and generate structured responses in bullet-point format. When generating response, please include all available information from the data, especially law articles, if the data is regarded with user's query even slightly.
 2. Ensure responses are:
    - Logically coherent and legally accurate based on the data.
    - Specificity to the query, citing exact provisions (e.g., 'Law: Tax Code, Article 13.2.1') with translated text when applicable, avoiding vague or generic answers.
@@ -85,9 +86,9 @@ async function adjustPromptTokens(
     lang === 'English' ? 'Please contact a professional' : 'Zəhmət olmasa, peşəkarla əlaqə saxlayın';
 
   let systemPrompt = basePrompt.replace('{}', lang)
-    .replace('{}', resultsRule.join(', '))
+    // .replace('{}', resultsRule.join(', '))
     .replace('{}', resultsLaw.join(', '))
-    .replace('{}', resultsPost.join(', '))
+    // .replace('{}', resultsPost.join(', '))
     .replace('{}', noAnswerMsg);
   let fullInput = systemPrompt + '\n' + query;
   let tokenCount = await getTokenCount(fullInput);
@@ -98,38 +99,38 @@ async function adjustPromptTokens(
   let adjustedPost = [...resultsPost];
   let adjustedRule = [...resultsRule];
 
-  while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedPost.shift();
-    systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', noAnswerMsg);
-    fullInput = systemPrompt + '\n' + query;
-    tokenCount = await getTokenCount(fullInput);
-  }
+  // while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
+  //   adjustedPost.shift();
+  //   systemPrompt = basePrompt.replace('{}', lang)
+  //     .replace('{}', adjustedRule.join(', '))
+  //     .replace('{}', adjustedLaw.join(', '))
+  //     .replace('{}', adjustedPost.join(', '))
+  //     .replace('{}', noAnswerMsg);
+  //   fullInput = systemPrompt + '\n' + query;
+  //   tokenCount = await getTokenCount(fullInput);
+  // }
 
   while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
     adjustedLaw.shift();
     systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
+      // .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
+      // .replace('{}', adjustedPost.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
   }
 
-  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedRule.shift();
-    systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', noAnswerMsg);
-    fullInput = systemPrompt + '\n' + query;
-    tokenCount = await getTokenCount(fullInput);
-  }
+  // while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
+  //   adjustedRule.shift();
+  //   systemPrompt = basePrompt.replace('{}', lang)
+  //     .replace('{}', adjustedRule.join(', '))
+  //     .replace('{}', adjustedLaw.join(', '))
+  //     .replace('{}', adjustedPost.join(', '))
+  //     .replace('{}', noAnswerMsg);
+  //   fullInput = systemPrompt + '\n' + query;
+  //   tokenCount = await getTokenCount(fullInput);
+  // }
 
   return systemPrompt;
 }
