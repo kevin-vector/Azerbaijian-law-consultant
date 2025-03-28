@@ -14,9 +14,9 @@ const basePrompt = `You are an advanced legal analysis AI built to assist users 
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-
+- 'Azerbaijian Tax Code': {}
 - 'Azerbaijian Law': {}
-
+- 'Social Posts': {}
 These data are written in the Azerbaijani language, so you should interpret them very carefully. You need not to make any errors when understanding these in English because it could be changed when you try to translate these.
 
 Follow these instructions for every response:
@@ -86,9 +86,9 @@ async function adjustPromptTokens(
     lang === 'English' ? 'Please contact a professional' : 'Zəhmət olmasa, peşəkarla əlaqə saxlayın';
 
   let systemPrompt = basePrompt.replace('{}', lang)
-    // .replace('{}', resultsRule.join(', '))
+    .replace('{}', resultsRule.join(', '))
     .replace('{}', resultsLaw.join(', '))
-    // .replace('{}', resultsPost.join(', '))
+    .replace('{}', resultsPost.join(', '))
     .replace('{}', noAnswerMsg);
   let fullInput = systemPrompt + '\n' + query;
   let tokenCount = await getTokenCount(fullInput);
@@ -99,38 +99,38 @@ async function adjustPromptTokens(
   let adjustedPost = [...resultsPost];
   let adjustedRule = [...resultsRule];
 
-  // while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
-  //   adjustedPost.shift();
-  //   systemPrompt = basePrompt.replace('{}', lang)
-  //     .replace('{}', adjustedRule.join(', '))
-  //     .replace('{}', adjustedLaw.join(', '))
-  //     .replace('{}', adjustedPost.join(', '))
-  //     .replace('{}', noAnswerMsg);
-  //   fullInput = systemPrompt + '\n' + query;
-  //   tokenCount = await getTokenCount(fullInput);
-  // }
-
-  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedLaw.shift();
+  while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedPost.shift();
     systemPrompt = basePrompt.replace('{}', lang)
-      // .replace('{}', adjustedRule.join(', '))
+      .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
-      // .replace('{}', adjustedPost.join(', '))
+      .replace('{}', adjustedPost.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
   }
 
-  // while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
-  //   adjustedRule.shift();
-  //   systemPrompt = basePrompt.replace('{}', lang)
-  //     .replace('{}', adjustedRule.join(', '))
-  //     .replace('{}', adjustedLaw.join(', '))
-  //     .replace('{}', adjustedPost.join(', '))
-  //     .replace('{}', noAnswerMsg);
-  //   fullInput = systemPrompt + '\n' + query;
-  //   tokenCount = await getTokenCount(fullInput);
-  // }
+  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedLaw.shift();
+    systemPrompt = basePrompt.replace('{}', lang)
+      .replace('{}', adjustedRule.join(', '))
+      .replace('{}', adjustedLaw.join(', '))
+      .replace('{}', adjustedPost.join(', '))
+      .replace('{}', noAnswerMsg);
+    fullInput = systemPrompt + '\n' + query;
+    tokenCount = await getTokenCount(fullInput);
+  }
+
+  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedRule.shift();
+    systemPrompt = basePrompt.replace('{}', lang)
+      .replace('{}', adjustedRule.join(', '))
+      .replace('{}', adjustedLaw.join(', '))
+      .replace('{}', adjustedPost.join(', '))
+      .replace('{}', noAnswerMsg);
+    fullInput = systemPrompt + '\n' + query;
+    tokenCount = await getTokenCount(fullInput);
+  }
 
   return systemPrompt;
 }
