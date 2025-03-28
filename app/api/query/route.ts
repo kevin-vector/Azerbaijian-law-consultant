@@ -14,17 +14,16 @@ const basePrompt = `You are an advanced legal analysis AI built to assist users 
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-- 'Azerbaijian Tax Code': {}
 - 'Azerbaijian Law': {}
+- 'Azerbaijian Tax Code': {}
 - 'Social Posts': {}
-These data are written in the Azerbaijani language, so you should interpret them very carefully. You need not to make any errors when understanding these in English because it could be changed when you try to translate these.
 
 Follow these instructions for every response:
 1. Analyze the provided data and generate structured responses in bullet-point format. When generating response, please include all available information from the data, especially law articles, if the data is regarded with user's query even slightly.
 2. Ensure responses are:
    - Logically coherent and legally accurate based on the data.
    - Specificity to the query, citing exact provisions (e.g., 'Law: Tax Code, Article 13.2.1') with translated text when applicable, avoiding vague or generic answers.
-   - Mandatory citations to source material (e.g., 'Azerbaijian Tax Code: [title/section]', 'Azerbaijian Law: [title/date]', 'Social Posts: [title]') when answering queries about legal governance or provisions.
+   - Mandatory citations to source material (e.g., '[Exact Law Title]: [section/article]', 'Azerbaijian Tax Code: [title/section]', 'Social Posts: [title]') when answering queries about legal governance or provisions. For laws, use the specific title as provided in the dataset (e.g., 'Law on Environmental Protection' instead of a generic 'Azerbaijian Law') followed by the relevant section, article, or date if available.
 3. For every query, provide two response sections in the following order:
    - '[Detailed Response]': Comprehensive answers with in-depth analysis, explanations, and examples from the data. This part must be very specific and highly detailed.
    - '[Summarized Response]': Concise answers focusing on key points without excessive elaboration.
@@ -54,7 +53,7 @@ async function fetchResults(index: any, queryEmbedding: number[], indexName: str
   try {
     const results = await index.query({
       vector: queryEmbedding,
-      topK: 3,
+      topK: 10,
       includeMetadata: true,
     });
     console.log(`Pinecone results for ${indexName}:`, results);
@@ -110,8 +109,8 @@ async function adjustPromptTokens(
     tokenCount = await getTokenCount(fullInput);
   }
 
-  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedLaw.shift();
+  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedRule.shift();
     systemPrompt = basePrompt.replace('{}', lang)
       .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
@@ -121,8 +120,8 @@ async function adjustPromptTokens(
     tokenCount = await getTokenCount(fullInput);
   }
 
-  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedRule.shift();
+  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedLaw.shift();
     systemPrompt = basePrompt.replace('{}', lang)
       .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
@@ -149,8 +148,8 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = await adjustPromptTokens(
     basePrompt,
-    resultsRule,
     resultsLaw,
+    resultsRule,
     resultsPost,
     query,
     TPM_LIMIT
@@ -163,7 +162,7 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: query },
       ],
-      // temperature: 0.7,
+      temperature: 0.7,
       max_tokens: 10000,
     });
     const aiResponse = response.choices[0].message.content;
