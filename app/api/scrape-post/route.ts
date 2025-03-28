@@ -5,6 +5,27 @@ import { supabase } from '../../../lib/supabase';
 import { postIndex } from '@/lib/pinecone';
 import { getEmbedding } from '@/lib/embeddings';
 
+function splitText(text:string, maxLength = 1500, overlap = 100) {
+  // Split text into chunks under maxLength with overlap
+  if (text.length <= maxLength) {
+      return [text];
+  }
+  
+  const chunks = [];
+  let start = 0;
+  
+  while (start < text.length) {
+      let end = start + maxLength;
+      const st = Math.max(start - overlap, 0);
+      const ed = Math.min(end + overlap, text.length);
+      const chunk = text.slice(st, ed);
+      chunks.push(chunk);
+      start = end - overlap < text.length ? end - overlap : end;
+  }
+  
+  return chunks;
+}
+
 async function scrapeAndInsertPosts() {
   const { data: post } = await supabase
         .from('Scrape')
@@ -67,20 +88,19 @@ async function scrapeAndInsertPosts() {
             htmlContent = paragraphs.join('\n\n');
           }
 
-          const dataToInsert = {
+          const chunks = htmlContent.length > 1500 ? splitText(htmlContent, 1500, 100) : [htmlContent];
+          const dataToInsert = chunks.map((chunk, idx) => ({            
             content_id: id,
             title,
-            content: htmlContent,
+            content: chunk,
             view,
-          };
+            chunk_id: `${id}_${idx}`,
+          }));
 
-          console.log(`Processing: content_id=${dataToInsert.content_id}, view=${dataToInsert.view}`);
-
-          // Check for existing record to avoid duplicates
           const { data: existing, error: fetchError } = await supabase
             .from('Ajerbaijian_post')
-            .select('content_id')
-            .eq('content_id', id)
+            .select('id')
+            .eq('chunk_id', `${id}_0`)
             .single();
 
           if (fetchError && fetchError.code !== 'PGRST116') {
@@ -89,34 +109,36 @@ async function scrapeAndInsertPosts() {
           }
 
           if (!existing) {
-            const { error: insertError } = await supabase
+            const { data:insertedData, error: insertError } = await supabase
               .from('Ajerbaijian_post')
-              .insert(dataToInsert);
+              .insert(dataToInsert).select();
             if (insertError) {
               console.error(`Error inserting content_id ${id}:`, insertError);
             } else {
               console.log(`Inserted content_id ${id}`);
             }
-
-            const embedding = await getEmbedding(dataToInsert.content);
-            const { data: uniq, error: fetchError } = await supabase
-              .from('Ajerbaijian_post')
-              .select('id')
-              .eq('content_id', dataToInsert.content_id)
-              .single();
-
-            if (fetchError) {
-              console.error(`Error fetching unique id for content_id ${dataToInsert.content_id}:`, fetchError);
-              continue;
-            }
             
-            await postIndex.upsert([
-              {
-                id: uniq?.id,
-                values: embedding,
-                metadata: { content_id: dataToInsert.content_id },
-              },
-            ]);
+            if (insertedData) {
+              const pineconeRecords = await Promise.all(
+                insertedData.map(async (row) => {
+                  const embedding = await getEmbedding(row.content); // Generate embedding for the content
+                  return {
+                    id: row.id.toString(), // Use the Supabase ID as the Pinecone ID
+                    values: embedding,
+                    metadata: {
+                      content_id: id, // Supabase ID
+                    },
+                  };
+                })
+              );
+            
+              try {
+                await postIndex.upsert(pineconeRecords);
+                console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
+              } catch (pineconeError) {
+                console.error(`Error upserting embeddings into Pinecone:`, pineconeError);
+              }
+            }
           } else {
             console.log(`Skipped duplicate content_id ${id}`);
           }

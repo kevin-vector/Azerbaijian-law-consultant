@@ -5,6 +5,27 @@ import { supabase } from '../../../lib/supabase';
 import { getEmbedding } from '@/lib/embeddings';
 import { lawIndex } from '@/lib/pinecone';
 
+function splitText(text:string, maxLength = 1500, overlap = 100) {
+  // Split text into chunks under maxLength with overlap
+  if (text.length <= maxLength) {
+      return [text];
+  }
+  
+  const chunks = [];
+  let start = 0;
+  
+  while (start < text.length) {
+      let end = start + maxLength;
+      const st = Math.max(start - overlap, 0);
+      const ed = Math.min(end + overlap, text.length);
+      const chunk = text.slice(st, ed);
+      chunks.push(chunk);
+      start = end - overlap < text.length ? end - overlap : end;
+  }
+  
+  return chunks;
+}
+
 async function processData(id: number) {
   const url = `https://api.e-qanun.az/framework/${id}`;
   try {
@@ -59,7 +80,8 @@ async function processData(id: number) {
       }
     }
 
-    const dataToInsert = {
+    const chunks = htmlContent.length > 1500 ? splitText(htmlContent, 1500, 100) : [htmlContent];
+    const dataToInsert = chunks.map((chunk, idx) => ({
       title: requisite.title || '',
       acceptDate: getValidDate(requisite.acceptDate),
       typeName: requisite.typeName || '',
@@ -69,14 +91,14 @@ async function processData(id: number) {
       registerCode: requisite.registerCode || '',
       registerDate: getValidDate(requisite.registerDate),
       resource,
-      content: htmlContent,
-      id,
-    };
+      content: chunk,
+      chunk_id: `${id}_${idx}`,
+    }));
 
     const { data: existing, error: fetchError } = await supabase
       .from('Ajerbaijian_law')
-      .select('id')
-      .eq('id', id)
+      .select('chunk_id')
+      .eq('id', `${id}_0`)
       .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
@@ -84,34 +106,37 @@ async function processData(id: number) {
       return;
     }
 
-    if (existing) {
-      const { error: updateError } = await supabase
+    if (!existing) {
+      const { data: insertedData, error: insertError } = await supabase
         .from('Ajerbaijian_law')
-        .update(dataToInsert)
-        .eq('id', id);
-      if (updateError) {
-        console.error(`Error updating ID ${id}:`, updateError);
-      } else {
-        console.log(`Updated ID ${id}`);
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from('Ajerbaijian_law')
-        .insert(dataToInsert);
+        .insert(dataToInsert).select();
       if (insertError) {
         console.error(`Error inserting ID ${id}:`, insertError);
       } else {
         console.log(`Inserted ID ${id}`);
       }
-      const embedding = await getEmbedding(dataToInsert.content);
+
+      if (insertedData) {
+        const pineconeRecords = await Promise.all(
+          insertedData.map(async (row) => {
+            const embedding = await getEmbedding(row.content); // Generate embedding for the content
+            return {
+              id: row.id.toString(), // Use the Supabase ID as the Pinecone ID
+              values: embedding,
+              metadata: {
+                content_id: row.id, // Supabase ID
+              },
+            };
+          })
+        );
       
-      await lawIndex.upsert([
-        {
-          id: dataToInsert.id.toString(),
-          values: embedding,
-          metadata: { content_id: dataToInsert.id },
-        },
-      ]);
+        try {
+          await lawIndex.upsert(pineconeRecords);
+          console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
+        } catch (pineconeError) {
+          console.error(`Error upserting embeddings into Pinecone:`, pineconeError);
+        }
+      }
     }
   } catch (error) {
     console.error(`Error processing ID ${id}:`, error);

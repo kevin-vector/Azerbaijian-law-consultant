@@ -156,11 +156,11 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="document-title">{language === "en" ? "Document Title" : "Sənəd başlığı"}</Label>
-                <Input id="document-title" className="w-full mt-1" onChange={(e) => setTitle(e.target.value)}/>
+                <Input value = {title} id="document-title" className="w-full mt-1" onChange={(e) => setTitle(e.target.value)}/>
               </div>
               <div>
                 <Label htmlFor="document-content">{language === "en" ? "Document Content" : "Sənəd məzmunu"}</Label>
-                <textarea id="document-content" className="w-full mt-1 min-h-[200px] p-2 border rounded-md" onChange={(e) => setContent(e.target.value)}/>
+                <textarea value={content} id="document-content" className="w-full mt-1 min-h-[200px] p-2 border rounded-md" onChange={(e) => setContent(e.target.value)}/>
               </div>
               {/* <div>
                 <Label htmlFor="document-file">{language === "en" ? "Upload Document" : "Sənəd yükləyin"}</Label>
