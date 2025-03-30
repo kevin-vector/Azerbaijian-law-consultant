@@ -9,14 +9,14 @@ export async function POST(req: NextRequest) {
         .select('status, created_at')
         .eq('source', 'law')
         .order("id", { ascending: false })
-  
+
       const { data: post } = await supabase
         .from('Scrape')
         .select('status, created_at')
         .eq('source', 'post')
         .order("id", { ascending: false })
 
-      console.log(law, post)
+      console.log('scrape status', law, post)
 
       return NextResponse.json({
         law: law?.length ? law[0] : {status:"finished", created_at:"abcd"},
