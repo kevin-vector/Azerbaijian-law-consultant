@@ -4,6 +4,9 @@ import * as bcrypt from "bcryptjs";
 // Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_KEY!;
+if(!supabaseUrl) console.log('supabase url is not indexed')
+if(!supabaseKey) console.log('supabase key is not indexed')
+console.log(supabaseUrl, supabaseKey)
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Helper functions for user management
@@ -18,7 +21,13 @@ export async function getUserByEmail(email: string) {
   return data
 }
 
-export async function createUser(username: string, email: string, password: string) {
+export async function createUser(
+  username: string,
+  email: string,
+  password: string,
+  role = "user",
+  status = "accepted",
+) {
   const { data, error } = await supabase
     .from("user")
     .insert([
@@ -26,7 +35,8 @@ export async function createUser(username: string, email: string, password: stri
         username,
         email,
         password,
-        role: "user", // Default role is user
+        role, // Use the provided role
+        status, // Use the provided status
         created_at: new Date().toISOString(),
       },
     ])
@@ -42,6 +52,7 @@ export async function createUser(username: string, email: string, password: stri
 
 export async function verifyCredentials(email: string, password: string) {
   const { data:user, error } = await supabase.from("user").select("*").eq("email", email).single()
+  console.log(user)
 
   if (error) {
     console.error("Error verifying credentials:", error)
@@ -111,3 +122,31 @@ export async function manualInput(title: string, content: string) {
     throw error;
   }
 }
+
+export async function getPendingAdmins() {
+  const { data, error } = await supabase
+    .from("user")
+    .select("*")
+    .eq("role", "admin")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.log("No pending admins:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function approveAdmin(userId: string) {
+  const { error } = await supabase.from("user").update({ status: "accepted" }).eq("id", userId)
+
+  if (error) {
+    console.error("Error approving admin:", error)
+    throw error
+  }
+
+  return true
+}
+

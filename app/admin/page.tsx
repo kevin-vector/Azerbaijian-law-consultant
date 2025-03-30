@@ -5,135 +5,74 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import UserHeader from "@/components/user-header"
-import { Loader2 } from "lucide-react"
+import { Loader2, UserCheck } from "lucide-react"
 import { getUser } from "@/lib/session"
-import { set } from "date-fns"
 
 export default function AdminPage() {
   const router = useRouter()
   const [language, setLanguage] = useState("en")
-  const [userRole, setUserRole] = useState("admin")
+  const [userRole, setUserRole] = useState("admin") // Set to admin for this page
   const [user, setUser] = useState<any>(null)
-  const [error, setError] = useState("")
-  const [statusError, setStatusError] = useState("")
-  const [title, setTitle] = useState("")
-  const [content, setContent] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [scrape_law, setScrape_law] = useState({status:"running", created_at:""})
-  const [scrape_post, setScrape_post] = useState({status:"running", created_at:""})
-
-  const getScrapeStatus = async () => {
-    try {
-      const res = await fetch('/api/scrape-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      console.log(res)
-      setScrape_law(data.law)
-      setScrape_post(data.post)
-      console.log(data)
-    } catch (err: any) {
-      setStatusError(err.message);
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect (() => {    
-    getScrapeStatus()
-  }, [])
+  const [includeScrapingData, setIncludeScrapingData] = useState(true)
+  const [includeManualData, setIncludeManualData] = useState(true)
+  const [pendingAdminCount, setPendingAdminCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const userData = getUser()
-    if (!userData) {
-      router.push("/")
-      return
+    const loadData = async () => {
+      const userData = getUser()
+      if (!userData) {
+        router.push("/")
+        return
+      }
+
+      // Check if user has admin or root role, if not redirect to dashboard
+      if (userData.role !== "admin" && userData.role !== "root") {
+        router.push("/dashboard")
+        return
+      }
+
+      setUser(userData)
+      setUserRole(userData.role)
+
+      // If user is root, fetch pending admin count from API
+      if (userData.role === "root") {
+        try {
+          const response = await fetch("/api/admin/pending")
+          if (response.ok) {
+            const data = await response.json()
+            setPendingAdminCount(data.pendingAdmins.length)
+          } else {
+            console.error("Failed to fetch pending admins")
+          }
+        } catch (error) {
+          console.error("Error fetching pending admins:", error)
+        }
+      }
+
+      setIsLoading(false)
     }
 
-    if (userData.role !== "admin") {
-      router.push("/dashboard")
-      return
-    }
-
-    setUser(userData)
-    setUserRole("admin")
+    loadData()
   }, [router])
 
   const toggleLanguage = () => {
     setLanguage(language === "en" ? "az" : "en")
   }
 
-  if (!user) {
+  const goToAdminApproval = () => {
+    router.push("/admin/approve")
+  }
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError("");
-      if (!title || !content) {
-        setError("Please fill in all required fields");
-        return;
-      }
-      setLoading(true);
-
-      try {
-        const res = await fetch("/api/data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, content }),
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setTitle("");
-        setContent("");
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-  }
-
-  const scraping_law = async () => {
-    setScrape_law({status:"running", created_at:new Date().toISOString()})
-    try {
-      const res = await fetch("/api/scrape-law", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setTitle("");
-      setContent("");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const scraping_post = async () => {
-    setScrape_post({status:"running", created_at:new Date().toISOString()})
-    try {
-      const res = await fetch("/api/scrape-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setTitle("");
-      setContent("");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   }
 
   return (
@@ -148,67 +87,113 @@ export default function AdminPage() {
 
       <main className="flex-1 p-6">
         <div className="space-y-8 max-w-2xl mx-auto">
-          <form className="bg-white rounded-lg p-6 shadow-sm" onSubmit={handleSubmit}>
+          {/* Root User Admin Approval Section */}
+          {userRole === "root" && (
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold">{language === "en" ? "Admin Approvals" : "Admin Təsdiqləri"}</h2>
+                  <p className="text-muted-foreground mt-1">
+                    {language === "en"
+                      ? "Review and approve admin registration requests"
+                      : "Admin qeydiyyat sorğularını nəzərdən keçirin və təsdiqləyin"}
+                  </p>
+                </div>
+                {pendingAdminCount > 0 && <Badge className="bg-primary text-white">{pendingAdminCount}</Badge>}
+              </div>
+              <div className="mt-4">
+                <Button onClick={goToAdminApproval} className="flex items-center" disabled = {pendingAdminCount == 0}>
+                  <UserCheck className="mr-2 h-4 w-4" />
+                  {language === "en" ? "Manage Admin Requests" : "Admin Sorğularını İdarə Et"}
+                  {pendingAdminCount > 0 && (
+                    <Badge variant="outline" className="ml-2 bg-white text-primary">
+                      {pendingAdminCount}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Global Settings Section */}
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <h2 className="text-2xl font-bold mb-4">{language === "en" ? "Global Settings" : "Qlobal Parametrlər"}</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="include-scraping" className="text-base font-medium">
+                    {language === "en" ? "Include Scraping Data" : "Məlumat toplama daxil edin"}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en"
+                      ? "When enabled, data from web scraping sources will be included in search results"
+                      : "Aktiv olduqda, veb məlumat toplama mənbələrindən məlumatlar axtarış nəticələrinə daxil ediləcək"}
+                  </p>
+                </div>
+                <Switch id="include-scraping" checked={includeScrapingData} onCheckedChange={setIncludeScrapingData} />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div>
+                  <Label htmlFor="include-manual-data" className="text-base font-medium">
+                    {language === "en" ? "Include Manual Input Data" : "Əl ilə daxil edilmiş məlumatları daxil edin"}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en"
+                      ? "When enabled, manually entered document data will be included in search results"
+                      : "Aktiv olduqda, əl ilə daxil edilmiş sənəd məlumatları axtarış nəticələrinə daxil ediləcək"}
+                  </p>
+                </div>
+                <Switch id="include-manual-data" checked={includeManualData} onCheckedChange={setIncludeManualData} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Manual Data Entry" : "Əl ilə məlumat daxil edilməsi"}
             </h2>
-            {error && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4">{error}</div>}
             <div className="space-y-4">
               <div>
                 <Label htmlFor="document-title">{language === "en" ? "Document Title" : "Sənəd başlığı"}</Label>
-                <Input value = {title} id="document-title" className="w-full mt-1" onChange={(e) => setTitle(e.target.value)}/>
+                <Input id="document-title" className="w-full mt-1" />
               </div>
               <div>
                 <Label htmlFor="document-content">{language === "en" ? "Document Content" : "Sənəd məzmunu"}</Label>
-                <textarea value={content} id="document-content" className="w-full mt-1 min-h-[200px] p-2 border rounded-md" onChange={(e) => setContent(e.target.value)}/>
+                <textarea id="document-content" className="w-full mt-1 min-h-[200px] p-2 border rounded-md" />
               </div>
-              {/* <div>
+              <div>
                 <Label htmlFor="document-file">{language === "en" ? "Upload Document" : "Sənəd yükləyin"}</Label>
                 <Input id="document-file" type="file" className="w-full mt-1" />
-              </div> */}
-              <Button className="w-full" type="submit">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Submit Document" : "Sənədi təqdim edin"}</Button>
+              </div>
+              <Button className="w-full">{language === "en" ? "Submit Document" : "Sənədi təqdim edin"}</Button>
             </div>
-          </form>
+          </div>
 
           <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Scraping Management" : "Məlumat toplama idarəetməsi"}
             </h2>
-            {statusError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4">{statusError}</div>}
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 border rounded-md">
-                <span>
-                  www.muhasibat.az
-                  &nbsp;
-                  <span className="text-muted-foreground italic mb-4">{scrape_law.created_at === '' ? 'Status reading' : scrape_law.created_at === 'abcd' ? '' : `${scrape_law.created_at.slice(0, 10)} ${scrape_law.status}`}</span>
-                </span>
+                <span>legislation.az</span>
                 <div className="space-x-2">
-                  <Button 
-                    size="sm" 
-                    disabled = {scrape_law.status === 'running'}
-                    onClick={scraping_law}
-                  >
-                    {scrape_law.status === 'running' || scrape_law.created_at ==='' ? <Loader2 className="h-8 w-8 animate-spin" /> : language === "en" ? "Update" : "Yenilə"}
+                  <Button variant="outline" size="sm">
+                    {language === "en" ? "Edit" : "Redaktə et"}
                   </Button>
+                  <Button size="sm">{language === "en" ? "Update" : "Yenilə"}</Button>
                 </div>
               </div>
               <div className="flex justify-between items-center p-3 border rounded-md">
-                <span>
-                  www.e-qanun.az
-                  &nbsp;
-                  <span className="text-muted-foreground italic mb-4">{scrape_post.created_at === '' ? 'Status reading' : scrape_post.created_at === 'abcd' ? '' : `${scrape_post.created_at.slice(0, 10)} ${scrape_post.status}`}</span>
-                </span>
+                <span>e-qanun.az</span>
                 <div className="space-x-2">
-                  <Button 
-                    size="sm" 
-                    disabled = {scrape_post.status === 'running'}
-                    onClick={scraping_post}
-                  >
-                    {scrape_post.status === 'running' ? <Loader2 className="h-8 w-8 animate-spin" /> :language === "en" ? "Update" : "Yenilə"}
+                  <Button variant="outline" size="sm">
+                    {language === "en" ? "Edit" : "Redaktə et"}
                   </Button>
+                  <Button size="sm">{language === "en" ? "Update" : "Yenilə"}</Button>
                 </div>
               </div>
-              {/* <div className="flex justify-between items-center p-3 border rounded-md">
+              <div className="flex justify-between items-center p-3 border rounded-md">
                 <span>taxes.gov.az</span>
                 <div className="space-x-2">
                   <Button variant="outline" size="sm">
@@ -219,7 +204,7 @@ export default function AdminPage() {
               </div>
               <Button variant="outline" className="w-full">
                 {language === "en" ? "Add New Source" : "Yeni mənbə əlavə edin"}
-              </Button> */}
+              </Button>
             </div>
           </div>
         </div>

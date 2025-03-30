@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserByEmail, createUser, verifyCredentials } from '../../../lib/supabase';
 
 export async function POST(req: NextRequest) {
-  const { action, email, username, password, firstName, lastName } = await req.json();
+  const { action, email, username, password, firstName, lastName, role } = await req.json();
 
   try {
     switch (action) {
@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ user });
 
       case 'register':
-        console.log('password:', password)
         if (!email || !password || !username) {
           return NextResponse.json({ error: 'Email, password, and username are required' }, { status: 400 });
         }
@@ -25,7 +24,14 @@ export async function POST(req: NextRequest) {
         if (existingUser) {
           return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
         }
-        const newUser = await createUser(username, email, password);
+        const status = role === "user" ? "accepted" : "pending"
+        const newUser = await createUser(username, email, password, role, status)
+        if (role === "admin") {
+          return NextResponse.json({
+            message: "Your admin account has been created and is pending approval. You will be notified when approved.",
+            isPending: true,
+          })
+        }
         const displayName = `${firstName || ''} ${lastName || ''}`.trim() || username;
         return NextResponse.json({ user: { ...newUser, displayName } });
 

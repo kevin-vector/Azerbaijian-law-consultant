@@ -29,8 +29,10 @@ export default function UserHeader({ userRole, language, onLanguageToggle, userE
   const displayName = username || userEmail || "User"
   const displayInitial = username ? username[0].toUpperCase() : userEmail ? userEmail[0].toUpperCase() : "U"
 
-  const isAdmin = userRole === "admin"
+  const isAdmin = userRole === "admin" || userRole === "root"
+  const isRoot = userRole === "root"
   const isAdminPage = pathname === "/admin" || pathname.startsWith("/admin/")
+  const isRootPage = pathname === "/root" || pathname.startsWith("/root/")
 
   return (
     <header className="border-b bg-background sticky top-0 z-10">
@@ -39,34 +41,34 @@ export default function UserHeader({ userRole, language, onLanguageToggle, userE
           <h1 className="text-xl font-bold">
             <Link href="/dashboard">{language === "en" ? "Legal Database" : "Hüquq Verilənlər Bazası"}</Link>
           </h1>
-          {isAdmin && <span className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs">Admin</span>}
+          {isRoot && <span className="bg-red-100 text-red-800 px-2 py-1 rounded-md text-xs">Root</span>}
+          {isAdmin && !isRoot && <span className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs">Admin</span>}
         </div>
 
-        {/* Admin Navigation - toggle between Dashboard and Admin based on current page */}
-        {isAdmin && (
-          <div className="flex items-center">
-            {isAdminPage ? (
-              <Link
-                href="/dashboard"
-                className="flex items-center text-sm font-medium transition-colors hover:text-primary"
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                {language === "en" ? "Dashboard" : "Əsas Panel"}
-              </Link>
-            ) : (
-              <Link
-                href="/admin"
-                className="flex items-center text-sm font-medium transition-colors hover:text-primary"
-              >
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                {language === "en" ? "Admin Dashboard" : "Admin Paneli"}
-              </Link>
-            )}
-          </div>
-        )}
+        {/* Navigation Links */}
+        <div className="flex items-center gap-4">
+          {/* Dashboard Link - when on admin page */}
+          {isAdminPage && (
+            <Link
+              href="/dashboard"
+              className="flex items-center text-sm font-medium transition-colors hover:text-primary"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              {language === "en" ? "Dashboard" : "Əsas Panel"}
+            </Link>
+          )}
+
+          {/* Admin Link - when not on admin page */}
+          {isAdmin && !isAdminPage && (
+            <Link href="/admin" className="flex items-center text-sm font-medium transition-colors hover:text-primary">
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              {language === "en" ? "Admin Dashboard" : "Admin Paneli"}
+            </Link>
+          )}
+        </div>
 
         <div className="flex items-center gap-4">
-          <Button          
+          <Button
             className="px-4 w-auto"
             variant="ghost"
             size="icon"

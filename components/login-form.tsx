@@ -1,17 +1,17 @@
 "use client"
 
 import type React from "react"
-import bcrypt from 'bcryptjs';
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { FaGoogle } from "react-icons/fa"
 import { FaFacebook, FaTwitter } from "react-icons/fa"
 import { Loader2 } from "lucide-react"
-import { getUserByEmail, createUser, verifyCredentials } from "@/lib/supabase"
 import { setUser } from "@/lib/session"
 
 interface LoginFormProps {
@@ -28,97 +28,121 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
   const [error, setError] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [role, setRole] = useState("user")
+  const [successMessage, setSuccessMessage] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault()
+    setError("")
+    setSuccessMessage("")
 
+    // Basic validation
     if (!email || !password) {
-      setError("Please enter both email and password");
-      return;
+      setError("Please enter both email and password")
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
-      const res = await fetch("/api/auth", {
+      // Call the login API route
+      const response = await fetch("/api/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", email, password }),
-      });
-      const data = await res.json();
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 'action':'login', email, password }),
+      })
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Login failed");
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed")
       }
 
-      // Assuming setUser stores user data in session (e.g., localStorage or context)
-      setUser(data.user);
+      // Store user info for session management
+      setUser(data.user)
 
-      router.push("/dashboard");
+      // Redirect to dashboard
+      router.push("/dashboard")
     } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message);
+      console.error("Login error:", err)
+      setError(err.message || "An error occurred during login")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault()
+    setError("")
+    setSuccessMessage("")
 
+    // Basic validation
     if (!email || !password || !username) {
-      setError("Please fill in all required fields");
-      return;
+      setError("Please fill in all required fields")
+      return
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
+      setError("Password must be at least 6 characters long")
+      return
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+      setError("Passwords do not match")
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
-    try {      
-      const encryptedPassword = await bcrypt.hash(password, 10);
-      console.log("Encrypted password:", encryptedPassword)
-      const res = await fetch("/api/auth", {
+    try {
+      // Call the register API route
+      const response = await fetch("/api/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          action: "register",
+          'action':'login', 
           email,
+          password,
           username,
-          password: encryptedPassword,
           firstName,
           lastName,
+          role,
         }),
-      });
-      const data = await res.json();
+      })
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Registration failed");
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed")
       }
 
-      setUser(data.user);
-      router.push("/dashboard");
+      // If admin registration is pending
+      if (data.isPending) {
+        setSuccessMessage(data.message)
+        return
+      }
+
+      // Store user info for session management
+      setUser(data.user)
+
+      // Redirect to dashboard
+      router.push("/dashboard")
     } catch (err: any) {
-      console.error("Registration error:", err);
-      setError(err.message);
+      console.error("Registration error:", err)
+      setError(err.message || "An error occurred during registration")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
-  
+  }
+
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     setError("")
+    setSuccessMessage("")
 
     try {
       // Show a message that Google login is not implemented yet
@@ -146,6 +170,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
 
   const handleSocialLogin = (provider: string) => {
     setError("")
+    setSuccessMessage("")
 
     if (provider !== "google") {
       setError(`${provider} login is not implemented yet`)
@@ -162,7 +187,9 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
         <TabsTrigger value="register">Register</TabsTrigger>
       </TabsList>
 
-      {error && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4">{error}</div>}
+      {error && <div className={`text-sm p-3 rounded-md mb-4 bg-destructive/10 text-destructive`}>{error}</div>}
+
+      {successMessage && <div className="text-sm p-3 rounded-md mb-4 bg-blue-100 text-blue-800">{successMessage}</div>}
 
       <TabsContent value="login">
         <form onSubmit={handleLogin} className="space-y-4">
@@ -290,6 +317,28 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
               required
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>Register as</Label>
+            <RadioGroup value={role} onValueChange={setRole} className="flex space-x-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="user" id="user-role" />
+                <Label htmlFor="user-role" className="font-normal">
+                  User
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="admin" id="admin-role" />
+                <Label htmlFor="admin-role" className="font-normal">
+                  Admin
+                </Label>
+              </div>
+            </RadioGroup>
+            {role === "admin" && (
+              <p className="text-xs text-amber-600">Admin accounts require approval before they can be used.</p>
+            )}
+          </div>
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>
@@ -308,9 +357,9 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
             </div>
-          </div>
+          </div> */}
 
-          <div className="grid grid-cols-3 gap-3">
+          {/* <div className="grid grid-cols-3 gap-3">
             <Button
               variant="outline"
               type="button"
