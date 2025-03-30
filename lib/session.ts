@@ -1,4 +1,4 @@
-import type { User as FirebaseUser } from "firebase/auth"
+// import type { User as FirebaseUser } from "firebase/auth"
 
 // Helper functions for session management
 export function getUser() {
@@ -31,8 +31,8 @@ export function clearUser() {
   document.cookie = "user_session=; path=/; max-age=0"
 }
 
-export function setFirebaseUser(user: FirebaseUser | null) {
-  // This function is intentionally empty as it's not used in the current implementation.
-  // It's included to satisfy the missing export requirement.
-}
+// export function setFirebaseUser(user: FirebaseUser | null) {
+//   // This function is intentionally empty as it's not used in the current implementation.
+//   // It's included to satisfy the missing export requirement.
+// }
 

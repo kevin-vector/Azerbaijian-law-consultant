@@ -112,16 +112,15 @@ export async function manualInput(title: string, content: string) {
       throw error;
     }
 
-    // console.log("Inserted rows:", data);
     if (insertedData) {
       const pineconeRecords = await Promise.all(
         insertedData.map(async (row) => {
-          const embedding = await getEmbedding(row.content); // Generate embedding for the content
+          const embedding = await getEmbedding(row.content);
           return {
-            id: row.id.toString(), // Use the Supabase ID as the Pinecone ID
+            id: row.id.toString(),
             values: embedding,
             metadata: {
-              content_id: id, // Supabase ID
+              content_id: id,
             },
           };
         })
