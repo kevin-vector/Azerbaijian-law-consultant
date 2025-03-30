@@ -13,6 +13,7 @@ import { FaGoogle } from "react-icons/fa"
 import { FaFacebook, FaTwitter } from "react-icons/fa"
 import { Loader2 } from "lucide-react"
 import { setUser } from "@/lib/session"
+import bcrypt from "bcryptjs"
 
 interface LoginFormProps {
   disabled?: boolean
@@ -97,6 +98,8 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
     setIsLoading(true)
 
     try {
+      const encryptedPassword = await bcrypt.hash(password, 10);
+      console.log("Encrypted password:", encryptedPassword)
       // Call the register API route
       const response = await fetch("/api/auth", {
         method: "POST",
@@ -106,7 +109,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
         body: JSON.stringify({
           'action':'register', 
           email,
-          password,
+          password:encryptedPassword,
           username,
           firstName,
           lastName,
