@@ -85,7 +85,7 @@ function splitText(text:string, maxLength = 1500, overlap = 100) {
 
 export async function manualInput(title: string, content: string) {
   const id_supa = await supabase
-    .from("manual")
+    .from("Ajerbaijian_manual")
     .select("id")
     .order("id", { ascending: false })
     .limit(1)
@@ -103,7 +103,7 @@ export async function manualInput(title: string, content: string) {
 
   try {
     const { data : insertedData, error } = await supabase
-      .from("manual")
+      .from("Ajerbaijian_manual")
       .insert(rowsToInsert)
       .select();
 
@@ -168,3 +168,17 @@ export async function approveAdmin(userId: string) {
   return true
 }
 
+export async function getSettings(){
+  try {
+    const settingsResponse = await fetch("/api/admin/settings")
+    if (settingsResponse.ok) {
+      const settingsData = await settingsResponse.json()
+      return settingsData;
+    } else {
+      console.error("Failed to fetch settings")
+    }
+  } catch (error) {
+    console.error("Error loading settings:", error)
+  }
+  return {includeScraping: true, includeManual: true};
+}

@@ -1,34 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
-import { lawIndex, ruleIndex, postIndex } from '../../../lib/pinecone';
+import { lawIndex, ruleIndex, postIndex, manualIndex } from '../../../lib/pinecone';
 import { getEmbedding } from '../../../lib/embeddings';
 import { getTokenCount, truncateText } from '../../../lib/tokenizer';
 import OpenAI from 'openai';
 import {franc} from 'franc';
+import { useState } from 'react';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const TPM_LIMIT = 30000;
 
-const basePrompt = `You are an advanced legal analysis AI built to assist users in understanding and interpreting legal documents, laws, and related social media posts. Your primary focus is analyzing legal documents and laws. Specifically, you have access to the following datasets:
+const basePrompt = `You are an advanced professional assistant built to help users in understanding and interpreting legal documents, laws, and related social media posts.
 
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-- 'Azerbaijian Law': {}
-  
+- 'Azerbaijian Law': {}  
 - 'Azerbaijian Tax Code': {}
 - 'Social Posts': {}
+- 'Manual Data': {}
 
 Follow these instructions precisely for every response:
 
-1. Analyze the provided datasets and generate structured responses in bullet-point format.
+1. If the user is greeting only, then please answer with a friendly welcoming greeting that tells him/her what your role is.
 
-2. Cite exact provisions explicitly:
+2. Analyze the provided datasets and generate structured responses in bullet-point format.
+
+3. Cite exact provisions explicitly:
   - When referring to 'Azerbaijian Law', always refer to the specific Azerbaijian law by its exact title (e.g., 'Law on Environmental Protection', 'Criminal Code of Azerbaijan'), including section or article numbers.
   - When referring to 'Azerbaijian Tax Code', explicitly include articles or provisions.
-  - When referring to 'Social Posts', include the post title clearly.
+  - When referring to 'Social Posts' and 'Manual Data', include the post title clearly.
 
-3. Each response must have two separate, labeled sections:
+4. Each response must have two separate, labeled sections:
   - [Detailed Response]:
     - Provide comprehensive analysis and explanations.
     - Include explicit references to specific law titles, articles, or sections from the datasets.
@@ -38,13 +41,9 @@ Follow these instructions precisely for every response:
     - Provide concise bullet points.
     - Include clear, brief citations of law titles, sections, or articles without extensive elaboration.
 
-4. Explain clearly every mentioned legal concept with accurate definitions and examples, strictly based on the provided datasets.
+5. Explain clearly every mentioned legal concept with accurate definitions and examples, strictly based on the provided datasets.
 
-5. If the provided data does not sufficiently address the user's query, respond explicitly with:
-  '{}'
-  in both [Detailed Response] and [Summarized Response] sections.
-
-6. Avoid including generic disclaimers (e.g., "consult a legal professional") unless specifically requested.`;
+6. If the provided data does not sufficiently address the user's query, respond explicitly with: '{}' in both [Detailed Response] and [Summarized Response] sections. Do not answer any other words. Never.`;
 
 async function fetchContentFromSupabase(id: number, tableName: string) {
   const table = `Ajerbaijian_${tableName}`;
@@ -90,6 +89,7 @@ async function adjustPromptTokens(
   resultsRule: string[],
   resultsLaw: string[],
   resultsPost: string[],
+  resultsManual: string[],
   query: string,
   tpmLimit: number
 ) {
@@ -104,6 +104,7 @@ async function adjustPromptTokens(
     .replace('{}', resultsRule.join(', '))
     .replace('{}', resultsLaw.join(', '))
     .replace('{}', resultsPost.join(', '))
+    .replace('{}', resultsManual.join(', '))
     .replace('{}', noAnswerMsg);
   let fullInput = systemPrompt + '\n' + query;
   let tokenCount = await getTokenCount(fullInput);
@@ -113,6 +114,7 @@ async function adjustPromptTokens(
   let adjustedLaw = [...resultsLaw];
   let adjustedPost = [...resultsPost];
   let adjustedRule = [...resultsRule];
+  let adjustedManual = [...resultsManual]
 
   while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
     adjustedPost.shift();
@@ -120,6 +122,7 @@ async function adjustPromptTokens(
       .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
       .replace('{}', adjustedPost.join(', '))
+      .replace('{}', adjustedManual.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
@@ -131,6 +134,7 @@ async function adjustPromptTokens(
       .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
       .replace('{}', adjustedPost.join(', '))
+      .replace('{}', adjustedManual.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
@@ -142,6 +146,19 @@ async function adjustPromptTokens(
       .replace('{}', adjustedRule.join(', '))
       .replace('{}', adjustedLaw.join(', '))
       .replace('{}', adjustedPost.join(', '))
+      .replace('{}', adjustedManual.join(', '))
+      .replace('{}', noAnswerMsg);
+    fullInput = systemPrompt + '\n' + query;
+    tokenCount = await getTokenCount(fullInput);
+  }
+
+  while (adjustedManual.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjustedManual.shift();
+    systemPrompt = basePrompt.replace('{}', lang)
+      .replace('{}', adjustedRule.join(', '))
+      .replace('{}', adjustedLaw.join(', '))
+      .replace('{}', adjustedPost.join(', '))
+      .replace('{}', adjustedManual.join(', '))
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
@@ -151,14 +168,24 @@ async function adjustPromptTokens(
 }
 
 export async function POST(req: NextRequest) {
-  const { query } = await req.json();
+  const { query, settings } = await req.json();
   if (!query) return NextResponse.json({ error: 'Query is required' }, { status: 400 });
 
   const queryEmbedding = await getEmbedding(query);
 
-  const resultsLaw = await fetchResults(lawIndex, queryEmbedding, 'law');
-  const resultsPost = await fetchResults(postIndex, queryEmbedding, 'post');
-  const resultsRule = await fetchResults(ruleIndex, queryEmbedding, 'rule');
+  let resultsLaw = []
+  let resultsManual = []
+  let resultsPost = []
+  let resultsRule = []
+
+  if (settings.includeScraping) {
+    resultsLaw = await fetchResults(lawIndex, queryEmbedding, 'law');
+    resultsPost = await fetchResults(postIndex, queryEmbedding, 'post');
+    resultsRule = await fetchResults(ruleIndex, queryEmbedding, 'rule');
+  }
+  if(settings.includeManual){
+    resultsManual = await fetchResults(manualIndex, queryEmbedding, 'manual');
+  }
   
   console.log("started prompt adjustion")
 
@@ -167,6 +194,7 @@ export async function POST(req: NextRequest) {
     resultsLaw,
     resultsRule,
     resultsPost,
+    resultsManual,
     query,
     TPM_LIMIT
   );
@@ -179,7 +207,7 @@ export async function POST(req: NextRequest) {
         { role: 'user', content: query },
       ],
       temperature: 0.7,
-      max_tokens: 10000,
+      max_tokens: 5000,
     });
     const aiResponse = response.choices[0].message.content;
     return NextResponse.json({ response: aiResponse });

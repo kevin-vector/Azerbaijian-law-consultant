@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [document, setDocument] = useState("all")
+  const [settings, setSettings] = useState({includeScraping: true, includeManual: true})
 
   const sampleQuery =
     language === "en"
@@ -41,9 +42,23 @@ export default function Dashboard() {
       router.push("/")
       return
     }
-
     setUser(userData)
     setUserRole(userData.role || "user")
+
+    const loadData = async () => {
+      try {
+        const settingsResponse = await fetch("/api/admin/settings")
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json()
+          setSettings(settingsData)
+        } else {
+          console.error("Failed to fetch settings")
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error)
+      }
+    }
+    loadData()
   }, [router])
 
   // Scroll to bottom of chat when history changes
@@ -98,7 +113,7 @@ export default function Dashboard() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, settings }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);      

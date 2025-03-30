@@ -41,7 +41,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      console.log(res)
+      // console.log(res)
       setScrape_law(data.law)
       setScrape_post(data.post)
       console.log(data)
