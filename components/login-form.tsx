@@ -104,7 +104,7 @@ export default function LoginForm({ disabled = false }: LoginFormProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          'action':'login', 
+          'action':'register', 
           email,
           password,
           username,

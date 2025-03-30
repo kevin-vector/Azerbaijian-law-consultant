@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
         if (!user) {
           return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
         }
+        if(user['role'] == 'admin' && user['status'] == 'pending') user['role'] = 'user'
         return NextResponse.json({ user });
 
       case 'register':

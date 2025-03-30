@@ -4,9 +4,6 @@ import * as bcrypt from "bcryptjs";
 // Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_KEY!;
-if(!supabaseUrl) console.log('supabase url is not indexed')
-if(!supabaseKey) console.log('supabase key is not indexed')
-console.log(supabaseUrl, supabaseKey)
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Helper functions for user management
