@@ -232,7 +232,6 @@ export default function AdminPage() {
         body: JSON.stringify({ title, content }),
       });
       const data = await res.json();
-      alert(data)
       if (data.error) throw new Error(data.error);
       setTitle("");
       setContent("");
