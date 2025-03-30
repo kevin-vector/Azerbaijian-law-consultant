@@ -7,24 +7,31 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/components/ui/use-toast"
 import UserHeader from "@/components/user-header"
-import { Loader2, UserCheck } from "lucide-react"
+import { Loader2, UserCheck, Database, Settings, Users } from "lucide-react"
 import { getUser } from "@/lib/session"
 
 export default function AdminPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [language, setLanguage] = useState("en")
-  const [userRole, setUserRole] = useState("admin") // Set to admin for this page
+  const [userRole, setUserRole] = useState("admin")
   const [user, setUser] = useState<any>(null)
   const [includeScrapingData, setIncludeScrapingData] = useState(true)
   const [includeManualData, setIncludeManualData] = useState(true)
   const [pendingAdminCount, setPendingAdminCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isUpdatingScrapingSetting, setIsUpdatingScrapingSetting] = useState(false)
+  const [isUpdatingManualSetting, setIsUpdatingManualSetting] = useState(false)
 
+  // Load user data and settings on component mount
   useEffect(() => {
     const loadData = async () => {
       const userData = getUser()
       if (!userData) {
+        // Redirect to login if no user is found
         router.push("/")
         return
       }
@@ -37,6 +44,25 @@ export default function AdminPage() {
 
       setUser(userData)
       setUserRole(userData.role)
+
+      // Load settings from API
+      try {
+        const settingsResponse = await fetch("/api/admin/settings")
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json()
+          setIncludeScrapingData(settingsData.includeScraping)
+          setIncludeManualData(settingsData.includeManual)
+        } else {
+          console.error("Failed to fetch settings")
+          toast({
+            title: "Error",
+            description: "Failed to load settings. Please try again.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error)
+      }
 
       // If user is root, fetch pending admin count from API
       if (userData.role === "root") {
@@ -57,16 +83,102 @@ export default function AdminPage() {
     }
 
     loadData()
-  }, [router])
+  }, [router, toast])
 
+  // Toggle language
   const toggleLanguage = () => {
     setLanguage(language === "en" ? "az" : "en")
   }
 
+  // Handle scraping data toggle
+  const handleScrapingToggle = async (checked: boolean) => {
+    setIsUpdatingScrapingSetting(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "include_scraping",
+          value: checked,
+        }),
+      })
+
+      if (response.ok) {
+        setIncludeScrapingData(checked)
+        toast({
+          title: "Settings updated",
+          description:
+            language === "en"
+              ? `Scraping data is now ${checked ? "included" : "excluded"} from search results.`
+              : `Məlumat toplama indi axtarış nəticələrindən ${checked ? "daxil edilib" : "çıxarılıb"}.`,
+        })
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update settings")
+      }
+    } catch (error: any) {
+      console.error("Error updating scraping setting:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update settings. Please try again.",
+        variant: "destructive",
+      })
+      // Revert the UI state since the API call failed
+      setIncludeScrapingData(!checked)
+    } finally {
+      setIsUpdatingScrapingSetting(false)
+    }
+  }
+
+  // Handle manual data toggle
+  const handleManualDataToggle = async (checked: boolean) => {
+    setIsUpdatingManualSetting(true)
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "include_manual",
+          value: checked,
+        }),
+      })
+
+      if (response.ok) {
+        setIncludeManualData(checked)
+        toast({
+          title: "Settings updated",
+          description:
+            language === "en"
+              ? `Manual input data is now ${checked ? "included" : "excluded"} from search results.`
+              : `Əl ilə daxil edilmiş məlumatlar indi axtarış nəticələrindən ${checked ? "daxil edilib" : "çıxarılıb"}.`,
+        })
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update settings")
+      }
+    } catch (error: any) {
+      console.error("Error updating manual data setting:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update settings. Please try again.",
+        variant: "destructive",
+      })
+      // Revert the UI state since the API call failed
+      setIncludeManualData(!checked)
+    } finally {
+      setIsUpdatingManualSetting(false)
+    }
+  }
+  // Navigate to admin approval page
   const goToAdminApproval = () => {
     router.push("/admin/approve")
   }
 
+  // If user is not loaded yet, show loading
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -74,6 +186,9 @@ export default function AdminPage() {
       </div>
     )
   }
+
+  // Determine if user is root
+  const isRoot = userRole === "root"
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -86,10 +201,104 @@ export default function AdminPage() {
       />
 
       <main className="flex-1 p-6">
-        <div className="space-y-8 max-w-2xl mx-auto">
-          {/* Root User Admin Approval Section */}
-          {userRole === "root" && (
-            <div className="bg-white rounded-lg p-6 shadow-sm">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6">{language === "en" ? "Admin Dashboard" : "Admin Paneli"}</h1>
+
+          {/* Root-specific content */}
+          {/* {isRoot && (
+            <div className="space-y-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center">
+                      <Users className="h-5 w-5 mr-2 text-blue-500" />
+                      {language === "en" ? "User Management" : "İstifadəçi İdarəetməsi"}
+                    </CardTitle>
+                    <CardDescription>
+                      {language === "en" ? "Manage users and permissions" : "İstifadəçiləri və icazələri idarə edin"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          {language === "en" ? "Pending Admins" : "Gözləyən Adminlər"}
+                        </span>
+                        <Badge variant={pendingAdminCount > 0 ? "default" : "outline"}>{pendingAdminCount}</Badge>
+                      </div>
+                      <Button
+                        onClick={goToAdminApproval}
+                        variant="outline"
+                        className="w-full"
+                        disabled={pendingAdminCount === 0}
+                      >
+                        <UserCheck className="h-4 w-4 mr-2" />
+                        {language === "en" ? "Approve Admins" : "Adminləri Təsdiqlə"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center">
+                      <Database className="h-5 w-5 mr-2 text-green-500" />
+                      {language === "en" ? "Database" : "Verilənlər Bazası"}
+                    </CardTitle>
+                    <CardDescription>
+                      {language === "en"
+                        ? "Database management and backups"
+                        : "Verilənlər bazası idarəetməsi və ehtiyat nüsxələri"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          {language === "en" ? "Last Backup" : "Son Ehtiyat Nüsxə"}
+                        </span>
+                        <span className="text-sm">2 {language === "en" ? "hours ago" : "saat əvvəl"}</span>
+                      </div>
+                      <Button variant="outline" className="w-full">
+                        {language === "en" ? "Create Backup" : "Ehtiyat Nüsxə Yarat"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center">
+                      <Settings className="h-5 w-5 mr-2 text-orange-500" />
+                      {language === "en" ? "System Settings" : "Sistem Parametrləri"}
+                    </CardTitle>
+                    <CardDescription>
+                      {language === "en" ? "Configure system settings" : "Sistem parametrlərini konfiqurasiya edin"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          {language === "en" ? "System Status" : "Sistem Statusu"}
+                        </span>
+                        <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100">
+                          {language === "en" ? "Online" : "Aktiv"}
+                        </Badge>
+                      </div>
+                      <Button variant="outline" className="w-full">
+                        {language === "en" ? "System Settings" : "Sistem Parametrləri"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )} */}
+
+          {/* Root User Admin Approval Section - Shown only for root users */}
+          {isRoot && (
+            <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold">{language === "en" ? "Admin Approvals" : "Admin Təsdiqləri"}</h2>
@@ -102,7 +311,7 @@ export default function AdminPage() {
                 {pendingAdminCount > 0 && <Badge className="bg-primary text-white">{pendingAdminCount}</Badge>}
               </div>
               <div className="mt-4">
-                <Button onClick={goToAdminApproval} className="flex items-center" disabled = {pendingAdminCount == 0}>
+                <Button onClick={goToAdminApproval} className="flex items-center" disabled = {pendingAdminCount === 0}>
                   <UserCheck className="mr-2 h-4 w-4" />
                   {language === "en" ? "Manage Admin Requests" : "Admin Sorğularını İdarə Et"}
                   {pendingAdminCount > 0 && (
@@ -115,8 +324,8 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Global Settings Section */}
-          <div className="bg-white rounded-lg p-6 shadow-sm">
+          {/* Global Settings Section - Available to all admins */}
+          <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
             <h2 className="text-2xl font-bold mb-4">{language === "en" ? "Global Settings" : "Qlobal Parametrlər"}</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -130,7 +339,15 @@ export default function AdminPage() {
                       : "Aktiv olduqda, veb məlumat toplama mənbələrindən məlumatlar axtarış nəticələrinə daxil ediləcək"}
                   </p>
                 </div>
-                <Switch id="include-scraping" checked={includeScrapingData} onCheckedChange={setIncludeScrapingData} />
+                <div className="flex items-center">
+                  {isUpdatingScrapingSetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Switch
+                    id="include-scraping"
+                    checked={includeScrapingData}
+                    onCheckedChange={handleScrapingToggle}
+                    disabled={isUpdatingScrapingSetting}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t">
@@ -144,12 +361,21 @@ export default function AdminPage() {
                       : "Aktiv olduqda, əl ilə daxil edilmiş sənəd məlumatları axtarış nəticələrinə daxil ediləcək"}
                   </p>
                 </div>
-                <Switch id="include-manual-data" checked={includeManualData} onCheckedChange={setIncludeManualData} />
+                <div className="flex items-center">
+                  {isUpdatingManualSetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Switch
+                    id="include-manual-data"
+                    checked={includeManualData}
+                    onCheckedChange={handleManualDataToggle}
+                    disabled={isUpdatingManualSetting}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 shadow-sm">
+          {/* Manual Data Entry Section - Available to all admins */}
+          <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Manual Data Entry" : "Əl ilə məlumat daxil edilməsi"}
             </h2>
@@ -170,6 +396,7 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Scraping Management Section - Available to all admins */}
           <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Scraping Management" : "Məlumat toplama idarəetməsi"}

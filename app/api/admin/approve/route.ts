@@ -13,31 +13,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin ID is required" }, { status: 400 })
     }
     
-    // Verify authentication
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-    
-    // Get user data to check role
-    const { data: userData, error: userError } = await supabase
-      .from("user")
-      .select("role")
-      .eq("email", session.user.email)
-      .single()
-    
-    if (userError || !userData) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-    
-    // Check if user is a root user
-    if (userData.role !== "root") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-    
     // Approve admin
     await approveAdmin(adminId)
     
