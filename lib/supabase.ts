@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js"
 import * as bcrypt from "bcryptjs";
+import { getEmbedding } from "./embeddings";
+import { manualIndex } from "./pinecone";
 
-// Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_KEY!;
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Helper functions for user management
 export async function getUserByEmail(email: string) {
   const { data, error } = await supabase.from("user").select("*").eq("email", email).single()
 
@@ -85,7 +85,7 @@ function splitText(text:string, maxLength = 1500, overlap = 100) {
 
 export async function manualInput(title: string, content: string) {
   const id_supa = await supabase
-    .from("Ajerbaijian_rule")
+    .from("manual")
     .select("id")
     .order("id", { ascending: false })
     .limit(1)
@@ -102,8 +102,8 @@ export async function manualInput(title: string, content: string) {
   }));
 
   try {
-    const { data, error } = await supabase
-      .from("Ajerbaijian_rule")
+    const { data : insertedData, error } = await supabase
+      .from("manual")
       .insert(rowsToInsert)
       .select();
 
@@ -113,7 +113,28 @@ export async function manualInput(title: string, content: string) {
     }
 
     // console.log("Inserted rows:", data);
-    return data;
+    if (insertedData) {
+      const pineconeRecords = await Promise.all(
+        insertedData.map(async (row) => {
+          const embedding = await getEmbedding(row.content); // Generate embedding for the content
+          return {
+            id: row.id.toString(), // Use the Supabase ID as the Pinecone ID
+            values: embedding,
+            metadata: {
+              content_id: id, // Supabase ID
+            },
+          };
+        })
+      );
+    
+      try {
+        await manualIndex.upsert(pineconeRecords);
+        console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
+      } catch (pineconeError) {
+        console.error(`Error upserting embeddings into Pinecone:`, pineconeError);
+      }
+    }
+    return insertedData;
   } catch (error) {
     console.error("Error during batch insert:", error);
     throw error;
