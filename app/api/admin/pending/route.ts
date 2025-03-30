@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getPendingAdmins } from "@/lib/supabase"
+import { getPendingAdmins } from "../../../../lib/supabase"
 
 export async function GET(request: NextRequest) {
   try {

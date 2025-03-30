@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { approveAdmin } from "@/lib/supabase"
+import { approveAdmin } from "../../../../lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
