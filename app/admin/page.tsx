@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import UserHeader from "@/components/user-header"
-import { Loader2, UserCheck, Database, Settings, Users } from "lucide-react"
+import { Loader2, UserCheck, Database, Settings, Users, FileText } from "lucide-react"
 import { getUser } from "@/lib/session"
 
 export default function AdminPage() {
@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false)
   const [scrape_law, setScrape_law] = useState({status:"running", created_at:""})
   const [scrape_post, setScrape_post] = useState({status:"running", created_at:""})
+  const [documentCount, setDocumentCount] = useState(0)
 
   const getScrapeStatus = async () => {
     try {
@@ -91,6 +92,17 @@ export default function AdminPage() {
         }
       } catch (error) {
         console.error("Error loading settings:", error)
+      }
+
+      // Get document count
+      try {
+        const documentsResponse = await fetch("/api/admin/documents")
+        if (documentsResponse.ok) {
+          const documentsData = await documentsResponse.json()
+          setDocumentCount(documentsData.documents?.length || 0)
+        }
+      } catch (error) {
+        console.error("Error fetching document count:", error)
       }
 
       // If user is root, fetch pending admin count from API
@@ -205,6 +217,11 @@ export default function AdminPage() {
   // Navigate to admin approval page
   const goToAdminApproval = () => {
     router.push("/admin/approve")
+  }
+
+  // Navigate to documents management page
+  const goToDocumentsPage = () => {
+    router.push("/admin/documents")
   }
 
   // If user is not loaded yet, show loading
@@ -414,6 +431,29 @@ const scraping_post = async () => {
               </div>
             </div>
           )}
+
+          {/* Document Management Section - Available to all admins */}
+          <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {language === "en" ? "Document Management" : "Sənəd İdarəetməsi"}
+                </h2>
+                <p className="text-muted-foreground mt-1">
+                  {language === "en"
+                    ? "Manage manually entered legal documents"
+                    : "Əl ilə daxil edilmiş hüquqi sənədləri idarə edin"}
+                </p>
+              </div>
+              <Badge variant="outline">{documentCount}</Badge>
+            </div>
+            <div className="mt-4">
+              <Button onClick={goToDocumentsPage} className="flex items-center">
+                <FileText className="mr-2 h-4 w-4" />
+                {language === "en" ? "Manage Documents" : "Sənədləri İdarə Et"}
+              </Button>
+            </div>
+          </div>
 
           {/* Global Settings Section - Available to all admins */}
           <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
