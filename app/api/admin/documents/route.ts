@@ -2,14 +2,17 @@ import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { splitIntoChunks, mergeChunks, generateChunkId, getNextDocumentId } from "@/lib/document-utils"
 import { getUser } from "@/lib/session"
+import { getEmbedding } from "@/lib/embeddings"
+import { manualIndex } from "@/lib/pinecone"
 
 export async function GET(request: NextRequest) {
+  console.log('get')
   try {
 
-    const userData = getUser()
-    if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 })
-    }
+    // const userData = getUser()
+    // if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
+    //   return NextResponse.json({ error: "Document not found" }, { status: 404 })
+    // }
     
     const url = new URL(request.url)
     const id = url.searchParams.get("id")
@@ -70,17 +73,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userData = getUser()
-    if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 })
-    }
     const documentId = await getNextDocumentId(supabase)
 
     const contentChunks = splitIntoChunks(content)
     const chunkInserts = contentChunks.map((chunkContent, index) => ({
       title,
       content: chunkContent,
-      chunk_id: generateChunkId(documentId, index + 1),
+      chunk_id: generateChunkId(documentId, index),
+      language: language,
+      type: type
     }))
 
     const { data: insertedChunks, error: insertError } = await supabase
@@ -91,6 +92,26 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error("Error creating document chunks:", insertError)
       return NextResponse.json({ error: "Failed to create document" }, { status: 500 })
+    }
+
+    const pineconeRecords = await Promise.all(
+      insertedChunks.map(async (row) => {
+        const embedding = await getEmbedding(row.content);
+        return {
+          id: row.id.toString(),
+          values: embedding,
+          metadata: {
+            content_id: documentId,
+          },
+        };
+      })
+    );
+  
+    try {
+      await manualIndex.upsert(pineconeRecords);
+      console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
+    } catch (pineconeError) {
+      console.error(`Error managing Pinecone records:`, pineconeError);
     }
 
     return NextResponse.json({
@@ -118,12 +139,17 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const userData = getUser()
-    if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 })
-    }
-
     const documentIdPrefix = id.split("_")[0]
+
+    const { data:ids, error } = await supabase
+      .from("Ajerbaijian_manual")
+      .select("id")
+      .like("chunk_id", `${documentIdPrefix}_%`)
+
+    if (error) {
+      console.error("Error deleting existing document chunks:", error)
+      return NextResponse.json({ error: "Failed to update document" }, { status: 500 })
+    }
 
     const { error: deleteError } = await supabase
       .from("Ajerbaijian_manual")
@@ -140,7 +166,9 @@ export async function PUT(request: NextRequest) {
     const chunkInserts = contentChunks.map((chunkContent, index) => ({
       title,
       content: chunkContent,
-      chunk_id: generateChunkId(documentIdPrefix, index + 1),
+      chunk_id: generateChunkId(documentIdPrefix, index),
+      language: language,
+      type: type
     }))
 
     const { data: insertedChunks, error: insertError } = await supabase
@@ -151,6 +179,30 @@ export async function PUT(request: NextRequest) {
     if (insertError) {
       console.error("Error updating document chunks:", insertError)
       return NextResponse.json({ error: "Failed to update document" }, { status: 500 })
+    }
+
+    const pineconeRecords = await Promise.all(
+      insertedChunks.map(async (row) => {
+        const embedding = await getEmbedding(row.content);
+        return {
+          id: row.id.toString(),
+          values: embedding,
+          metadata: {
+            content_id: documentIdPrefix,
+          },
+        };
+      })
+    );
+  
+    try {
+      await manualIndex.deleteMany({content_id:documentIdPrefix});
+      console.log(`Successfully deleted existing Pinecone records with content_id: ${documentIdPrefix}`);
+
+      await manualIndex.upsert(pineconeRecords);
+
+      console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
+    } catch (pineconeError) {
+      console.error(`Error managing Pinecone records:`, pineconeError);
     }
 
     return NextResponse.json({
@@ -168,14 +220,22 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const userData = getUser()
-    if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 })
-    }
     const url = new URL(request.url)
     const id = url.searchParams.get("id")
 
     const documentIdPrefix = id?.split("_")[0]
+
+    const { data:ids, error } = await supabase
+      .from("Ajerbaijian_manual")
+      .select("id")
+      .like("chunk_id", `${documentIdPrefix}_%`)
+    const idArray = ids?.map((item) => String(item.id)) || [];
+    console.log(idArray)
+
+    if (error) {
+      console.error("Error deleting document chunks:", error)
+      return NextResponse.json({ error: "Failed to delete document" }, { status: 500 })
+    }
 
     const { error: documentError } = await supabase
       .from("Ajerbaijian_manual")
@@ -185,6 +245,13 @@ export async function DELETE(request: NextRequest) {
     if (documentError) {
       console.error("Error deleting document chunks:", documentError)
       return NextResponse.json({ error: "Failed to delete document" }, { status: 500 })
+    }
+
+    try {
+      await manualIndex.deleteMany(idArray);
+      console.log(`Successfully deleted existing Pinecone records with content_id: ${documentIdPrefix}`);
+    } catch (pineconeError) {
+      console.error(`Error managing Pinecone records:`, pineconeError);
     }
 
     return NextResponse.json({

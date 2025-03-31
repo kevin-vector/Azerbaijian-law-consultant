@@ -505,7 +505,7 @@ const scraping_post = async () => {
           </div>
 
           {/* Manual Data Entry Section - Available to all admins */}
-          <form className="bg-white rounded-lg p-6 shadow-sm" onSubmit={handleSubmit}>
+          {/* <form className="bg-white rounded-lg p-6 shadow-sm" onSubmit={handleSubmit}>
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Manual Data Entry" : "Əl ilə məlumat daxil edilməsi"}
             </h2>
@@ -519,13 +519,9 @@ const scraping_post = async () => {
                 <Label htmlFor="document-content">{language === "en" ? "Document Content" : "Sənəd məzmunu"}</Label>
                 <textarea value={content} id="document-content" className="w-full mt-1 min-h-[200px] p-2 border rounded-md" onChange={(e) => setContent(e.target.value)}/>
               </div>
-              {/* <div>
-                <Label htmlFor="document-file">{language === "en" ? "Upload Document" : "Sənəd yükləyin"}</Label>
-                <Input id="document-file" type="file" className="w-full mt-1" />
-              </div> */}
               <Button className="w-full" type="submit">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Submit Document" : "Sənədi təqdim edin"}</Button>
             </div>
-          </form>
+          </form> */}
 
           {/* <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-2xl font-bold mb-4">
