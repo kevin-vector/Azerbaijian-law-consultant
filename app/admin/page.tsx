@@ -528,7 +528,7 @@ const scraping_post = async () => {
             </div>
           </form>
 
-          <div className="bg-white rounded-lg p-6 shadow-sm">
+          {/* <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-2xl font-bold mb-4">
               {language === "en" ? "Scraping Management" : "Məlumat toplama idarəetməsi"}
             </h2>
@@ -566,7 +566,7 @@ const scraping_post = async () => {
                   </Button>
                 </div>
               </div>
-              {/* <div className="flex justify-between items-center p-3 border rounded-md">
+              <div className="flex justify-between items-center p-3 border rounded-md">
                 <span>taxes.gov.az</span>
                 <div className="space-x-2">
                   <Button variant="outline" size="sm">
@@ -577,9 +577,9 @@ const scraping_post = async () => {
               </div>
               <Button variant="outline" className="w-full">
                 {language === "en" ? "Add New Source" : "Yeni mənbə əlavə edin"}
-              </Button> */}
+              </Button>
             </div>
-          </div>
+          </div> */}
         </div>
       </main>
     </div>

@@ -39,14 +39,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     const loadData = async () => {
       const userData = getUser()
-      if (!userData) {
-        // Redirect to login if no user is found
-        router.push("/")
-        return
-      }
-
-      // Check if user has admin or root role, if not redirect to dashboard
-      if (userData.role !== "admin" && userData.role !== "root") {
+      if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
         router.push("/dashboard")
         return
       }
@@ -66,6 +59,7 @@ export default function DocumentsPage() {
     setIsLoading(true)
     try {
       const response = await fetch("/api/admin/documents")
+      console.log(response)
       if (!response.ok) {
         throw new Error("Failed to fetch documents")
       }
@@ -197,7 +191,7 @@ export default function DocumentsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {documents.map((document) => (
-                <Card key={document.id}>
+                <Card key={document.chunk_id}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{document.title}</CardTitle>
@@ -206,6 +200,11 @@ export default function DocumentsPage() {
                         <Badge variant="outline" className="bg-green-100 text-green-800">
                           {document.language === "en" ? "English" : "Azərbaycan"}
                         </Badge>
+                        {document.chunk_count > 1 && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                            {document.chunk_count} {language === "en" ? "chunks" : "hissə"}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -220,7 +219,7 @@ export default function DocumentsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setEditingDocumentId(document.id)}
+                      onClick={() => setEditingDocumentId(document.chunk_id.split("_")[0])}
                       className="flex items-center"
                     >
                       <Pencil className="h-4 w-4 mr-1" />
@@ -229,7 +228,7 @@ export default function DocumentsPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => setDeletingDocumentId(document.id)}
+                      onClick={() => setDeletingDocumentId(document.chunk_id.split("_")[0])}
                       className="flex items-center"
                     >
                       <Trash2 className="h-4 w-4 mr-1" />

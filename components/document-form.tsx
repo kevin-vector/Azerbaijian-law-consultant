@@ -26,6 +26,7 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
   const [content, setContent] = useState("")
   const [documentType, setDocumentType] = useState("law")
   const [documentLanguage, setDocumentLanguage] = useState(language)
+  const [chunkCount, setChunkCount] = useState(1)
 
   // Document type options
   const documentTypes = [
@@ -50,6 +51,7 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
           setContent(data.document.content)
           setDocumentType(data.document.type)
           setDocumentLanguage(data.document.language)
+          setChunkCount(data.document.chunk_count || 1)
         })
         .catch((error) => {
           console.error("Error loading document:", error)
@@ -64,6 +66,15 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
         })
     }
   }, [documentId, toast])
+
+  // Calculate estimated chunks based on content length
+  const estimateChunks = (text: string): number => {
+    if (!text) return 1
+    const chunkSize = 1500
+    const overlap = 100
+    const effectiveChunkSize = chunkSize - overlap
+    return Math.ceil(text.length / effectiveChunkSize) || 1
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,15 +112,17 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
         throw new Error(errorData.error || "Failed to save document")
       }
 
+      const data = await response.json()
+
       toast({
         title: "Success",
         description: documentId
           ? language === "en"
-            ? "Document updated successfully"
-            : "Sənəd uğurla yeniləndi"
+            ? `Document updated successfully (${data.document.chunk_count} chunks)`
+            : `Sənəd uğurla yeniləndi (${data.document.chunk_count} hissə)`
           : language === "en"
-            ? "Document created successfully"
-            : "Sənəd uğurla yaradıldı",
+            ? `Document created successfully (${data.document.chunk_count} chunks)`
+            : `Sənəd uğurla yaradıldı (${data.document.chunk_count} hissə)`,
       })
 
       // Call success callback
@@ -134,6 +147,9 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
     )
   }
 
+  // Estimate chunks for current content
+  const estimatedChunks = estimateChunks(content)
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -148,7 +164,23 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
       </div>
 
       <div>
-        <Label htmlFor="document-content">{language === "en" ? "Document Content" : "Sənəd məzmunu"}</Label>
+        <Label htmlFor="document-content">
+          {language === "en" ? "Document Content" : "Sənəd məzmunu"}
+          {content && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              {language === "en"
+                ? `(${content.length} characters, estimated ${estimatedChunks} chunks)`
+                : `(${content.length} simvol, təxminən ${estimatedChunks} hissə)`}
+            </span>
+          )}
+          {documentId && chunkCount > 1 && (
+            <span className="ml-2 text-xs text-amber-600">
+              {language === "en"
+                ? `(Currently stored in ${chunkCount} chunks)`
+                : `(Hazırda ${chunkCount} hissədə saxlanılır)`}
+            </span>
+          )}
+        </Label>
         <textarea
           id="document-content"
           value={content}
@@ -156,6 +188,11 @@ export default function DocumentForm({ documentId, language, onSuccess, onCancel
           className="w-full mt-1 min-h-[200px] p-2 border rounded-md"
           required
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          {language === "en"
+            ? "Documents longer than 1500 characters will be automatically split into chunks with 100 character overlap."
+            : "1500 simvoldan uzun sənədlər avtomatik olaraq 100 simvol üst-üstə düşməklə hissələrə bölünəcək."}
+        </p>
       </div>
 
       <div>

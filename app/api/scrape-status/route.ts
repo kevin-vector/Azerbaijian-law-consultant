@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
 
 export async function POST(req: NextRequest) {
-    console.log("Scrape status request")
+    // console.log("Scrape status request")
     try {
       const { data: law } = await supabase
         .from('Scrape')
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         .eq('source', 'post')
         .order("id", { ascending: false })
 
-      console.log('scrape status', law, post)
+      // console.log('scrape status', law, post)
 
       return NextResponse.json({
         law: law?.length ? law[0] : {status:"finished", created_at:"abcd"},

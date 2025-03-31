@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import UserHeader from "@/components/user-header"
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle, AlertCircle, ArrowLeft, Plus } from "lucide-react"
 import { getUser } from "@/lib/session"
 
 export default function AdminApprovePage() {
@@ -137,10 +137,17 @@ export default function AdminApprovePage() {
 
       <main className="flex-1 p-6">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold mb-6">
-            {language === "en" ? "Admin Approval Requests" : "Admin Təsdiq Sorğuları"}
-          </h1>
-
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => router.push("/admin")}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h1 className="text-2xl font-bold">
+                {language === "en" ? "Admin Approval Requests" : "Admin Təsdiq Sorğuları"}
+              </h1>
+            </div>
+          </div>
+          
           {message && (
             <div
               className={`p-4 mb-6 rounded-md flex items-center ${
