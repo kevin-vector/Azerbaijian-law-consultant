@@ -42,7 +42,6 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      // console.log(res)
       setScrape_law(data.law)
       setScrape_post(data.post)
       console.log(data)
@@ -53,7 +52,7 @@ export default function AdminPage() {
     }
   }
   useEffect (() => {    
-    getScrapeStatus()
+    // getScrapeStatus()
   }, [])
 
   // Load user data and settings on component mount
