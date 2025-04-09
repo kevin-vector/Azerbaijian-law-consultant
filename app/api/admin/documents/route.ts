@@ -5,56 +5,142 @@ import { getUser } from "@/lib/session"
 import { getEmbedding } from "@/lib/embeddings"
 import { manualIndex } from "@/lib/pinecone"
 
-export async function GET(request: NextRequest) {
-  console.log('get')
-  try {
+async function fetchAllDocumentChunks(documentId: string) {
+  let allChunks: any[] = []
+  let lastChunkId = null
+  let hasMore = true
 
-    // const userData = getUser()
-    // if (!userData || (userData.role !== "root" && userData.role !== "admin")) {
-    //   return NextResponse.json({ error: "Document not found" }, { status: 404 })
-    // }
+  while (hasMore) {
+    let query = supabase
+      .from("Ajerbaijian_manual")
+      .select("*")
+      .like("chunk_id", `${documentId}_%`)
+      .order("chunk_id", { ascending: true })
+      .limit(1000)
+
+    if (lastChunkId) {
+      query = query.gt("chunk_id", lastChunkId)
+    }
+
+    const { data: chunks, error } = await query
+
+    if (error) {
+      console.error("Error fetching document chunks:", error)
+      throw error
+    }
+
+    if (!chunks || chunks.length === 0) {
+      hasMore = false
+    } else {
+      allChunks = [...allChunks, ...chunks]
+      lastChunkId = chunks[chunks.length - 1].chunk_id
+
+      hasMore = chunks.length === 1000
+    }
+  }
+
+  return allChunks
+}
+
+async function getDocumentChunkCount(documentId: string) {
+  let totalCount = 0
+  let hasMore = true
+  let lastChunkId = null
+
+  while (hasMore) {
+    let query = supabase
+      .from("Ajerbaijian_manual")
+      .select("chunk_id")
+      .like("chunk_id", `${documentId}_%`)
+      .order("chunk_id", { ascending: true })
+      .limit(1000)
+
+    if (lastChunkId) {
+      query = query.gt("chunk_id", lastChunkId)
+    }
+
+    const { data: chunks, error } = await query
+
+    if (error) {
+      console.error("Error counting document chunks:", error)
+      return 0
+    }
+
+    if (!chunks || chunks.length === 0) {
+      hasMore = false
+    } else {
+      totalCount += chunks.length
+      lastChunkId = chunks[chunks.length - 1].chunk_id
+      hasMore = chunks.length === 1000
+    }
+  }
+
+  return totalCount
+}
+
+export async function GET(request: NextRequest) {
+  try {
     
     const url = new URL(request.url)
     const id = url.searchParams.get("id")
 
     if (id) {
-      const { data: chunks, error: documentError } = await supabase
-        .from("Ajerbaijian_manual")
-        .select("*")
-        .like("chunk_id", `${id}_%`)
-        .order("chunk_id", { ascending: true })
+      try {
+        const chunks = await fetchAllDocumentChunks(id)
 
-      if (documentError) {
-        console.error("Error fetching document chunks:", documentError)
-        return NextResponse.json({ error: "Document not found" }, { status: 404 })
+        if (!chunks || chunks.length === 0) {
+          return NextResponse.json({ error: "Document not found" }, { status: 404 })
+        }
+        const mergedDocument = {
+          ...chunks[0],
+          content: chunks.map((chunk) => chunk.content).join(""),
+          chunk_count: chunks.length,
+        }
+
+        return NextResponse.json({ document: mergedDocument })
+      } catch (error) {
+        console.error("Error fetching document:", error)
+        return NextResponse.json({ error: "Failed to fetch document" }, { status: 500 })
       }
-
-      if (!chunks || chunks.length === 0) {
-        return NextResponse.json({ error: "Document not found" }, { status: 404 })
-      }
-
-      const mergedDocument = {
-        ...chunks[0],
-        content: chunks.map((chunk) => chunk.content).join(""),
-        chunk_count: chunks.length,
-      }
-
-      return NextResponse.json({ document: mergedDocument })
     }
 
-    const { data: allChunks, error: chunksError } = await supabase
+    const { data: documentChunks, error: chunksError } = await supabase
       .from("Ajerbaijian_manual")
-      .select("*")
+      .select("chunk_id, title, type, language, created_at")
+      .like("chunk_id", "%_0")
       .order("created_at", { ascending: false })
 
     if (chunksError) {
-      console.error("Error fetching documents:", chunksError)
+      console.error("Error fetching document metadata:", chunksError)
       return NextResponse.json({ error: "Failed to fetch documents" }, { status: 500 })
     }
 
-    const documents = mergeChunks(allChunks || [])
+    const documentIds = documentChunks?.map((chunk) => chunk.chunk_id.split("_")[0]) || []
+    const chunkCounts: Record<string, number> = {}
 
-    return NextResponse.json({ documents })
+    if (documentIds.length > 0) {
+      for (const docId of documentIds) {
+        try {
+          const count = await getDocumentChunkCount(docId)
+          chunkCounts[docId] = count
+        } catch (error) {
+          console.error(`Error counting chunks for document ${docId}:`, error)
+          chunkCounts[docId] = 1
+        }
+      }
+    }
+    const documentsWithMetadata =
+      documentChunks?.map((doc) => {
+        const docId = doc.chunk_id.split("_")[0]
+        return {
+          ...doc,
+          content: "",
+          chunk_count: chunkCounts[docId] || 1,
+          document_id: docId,
+        }
+      }) || []
+
+    return NextResponse.json({ documents: documentsWithMetadata })
   } catch (error) {
     console.error("Error fetching documents:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
