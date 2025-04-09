@@ -107,8 +107,10 @@ export async function GET(request: NextRequest) {
     const { data: documentChunks, error: chunksError } = await supabase
       .from("Ajerbaijian_manual")
       .select("chunk_id, title, type, language, created_at")
-      .like("chunk_id", "%_0")
-      .order("created_at", { ascending: false })
+      .like("chunk_id", "%\\_0")
+      .order("created_at", { ascending: true })
+
+    console.log('documentschunks', documentChunks)
 
     if (chunksError) {
       console.error("Error fetching document metadata:", chunksError)

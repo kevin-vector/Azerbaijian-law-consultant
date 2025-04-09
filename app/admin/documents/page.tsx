@@ -189,54 +189,121 @@ export default function DocumentsPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {documents.map((document) => (
-                <Card key={document.chunk_id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{document.title}</CardTitle>
-                      <div className="flex gap-1">
-                        <Badge variant="outline">{getDocumentTypeLabel(document.type)}</Badge>
-                        <Badge variant="outline" className="bg-green-100 text-green-800">
-                          {document.language === "en" ? "English" : "Azərbaycan"}
-                        </Badge>
-                        {document.chunk_count > 1 && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                            {document.chunk_count} {language === "en" ? "chunks" : "hissə"}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {language === "en" ? "Added on" : "Əlavə edilib"}:{" "}
-                      {new Date(document.created_at).toLocaleDateString()}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-3">{document.content}</p>
-                  </CardContent>
-                  <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingDocumentId(document.chunk_id.split("_")[0])}
-                      className="flex items-center"
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      {language === "en" ? "Edit" : "Redaktə et"}
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeletingDocumentId(document.chunk_id.split("_")[0])}
-                      className="flex items-center"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      {language === "en" ? "Delete" : "Sil"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+            // <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            //   {documents.map((document) => (
+            //     <Card key={document.chunk_id}>
+            //       <CardHeader className="pb-2">
+            //         <div className="flex justify-between items-start">
+            //           <CardTitle className="text-lg">{document.title}</CardTitle>
+            //           <div className="flex gap-1">
+            //             <Badge variant="outline">{getDocumentTypeLabel(document.type)}</Badge>
+            //             <Badge variant="outline" className="bg-green-100 text-green-800">
+            //               {document.language === "en" ? "English" : "Azərbaycan"}
+            //             </Badge>
+            //             {document.chunk_count > 1 && (
+            //               <Badge variant="outline" className="bg-blue-100 text-blue-800">
+            //                 {document.chunk_count} {language === "en" ? "chunks" : "hissə"}
+            //               </Badge>
+            //             )}
+            //           </div>
+            //         </div>
+            //         <div className="text-sm text-muted-foreground">
+            //           {language === "en" ? "Added on" : "Əlavə edilib"}:{" "}
+            //           {new Date(document.created_at).toLocaleDateString()}
+            //         </div>
+            //       </CardHeader>
+            //       <CardContent>
+            //         <p className="line-clamp-3">{document.content}</p>
+            //       </CardContent>
+            //       <CardFooter className="flex justify-end gap-2 border-t pt-4">
+            //         <Button
+            //           variant="outline"
+            //           size="sm"
+            //           onClick={() => setEditingDocumentId(document.chunk_id.split("_")[0])}
+            //           className="flex items-center"
+            //         >
+            //           <Pencil className="h-4 w-4 mr-1" />
+            //           {language === "en" ? "Edit" : "Redaktə et"}
+            //         </Button>
+            //         <Button
+            //           variant="destructive"
+            //           size="sm"
+            //           onClick={() => setDeletingDocumentId(document.chunk_id.split("_")[0])}
+            //           className="flex items-center"
+            //         >
+            //           <Trash2 className="h-4 w-4 mr-1" />
+            //           {language === "en" ? "Delete" : "Sil"}
+            //         </Button>
+            //       </CardFooter>
+            //     </Card>
+            //   ))}
+            // </div>
+            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-left p-3 font-medium">{language === "en" ? "ID" : "ID"}</th>
+                      <th className="text-left p-3 font-medium">{language === "en" ? "Title" : "Başlıq"}</th>
+                      <th className="text-left p-3 font-medium">{language === "en" ? "Type" : "Növ"}</th>
+                      <th className="text-left p-3 font-medium">{language === "en" ? "Language" : "Dil"}</th>
+                      <th className="text-left p-3 font-medium">{language === "en" ? "Chunks" : "Hissələr"}</th>
+                      <th className="text-left p-3 font-medium">{language === "en" ? "Date" : "Tarix"}</th>
+                      <th className="text-right p-3 font-medium">{language === "en" ? "Actions" : "Əməliyyatlar"}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {documents.map((document) => {
+                      const docId = document.document_id || document.chunk_id.split("_")[0]
+                      return (
+                        <tr key={document.chunk_id || document.document_id} className="hover:bg-muted/30">
+                          <td className="p-3 text-sm font-mono">{docId}</td>
+                          <td className="p-3 font-medium">{document.title}</td>
+                          <td className="p-3">
+                            <Badge variant="outline">{getDocumentTypeLabel(document.type)}</Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
+                              {document.language === "en" ? "English" : "Azərbaycan"}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                              {document.chunk_count} {language === "en" ? "chunks" : "hissə"}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-sm text-muted-foreground">
+                            {new Date(document.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingDocumentId(docId)}
+                                className="flex items-center"
+                                disabled={editingDocumentId == docId}
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                {language === "en" ? "Edit" : "Redaktə et"}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setDeletingDocumentId(docId)}
+                                className="flex items-center"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                {language === "en" ? "Delete" : "Sil"}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
