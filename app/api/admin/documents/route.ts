@@ -5,78 +5,6 @@ import { getUser } from "@/lib/session"
 import { getEmbedding } from "@/lib/embeddings"
 import { manualIndex } from "@/lib/pinecone"
 
-async function fetchAllDocumentChunks(documentId: string) {
-  let allChunks: any[] = []
-  let lastChunkId = null
-  let hasMore = true
-
-  while (hasMore) {
-    let query = supabase
-      .from("Ajerbaijian_manual")
-      .select("*")
-      .like("chunk_id", `${documentId}_%`)
-      .order("chunk_id", { ascending: true })
-      .limit(1000)
-
-    if (lastChunkId) {
-      query = query.gt("chunk_id", lastChunkId)
-    }
-
-    const { data: chunks, error } = await query
-
-    if (error) {
-      console.error("Error fetching document chunks:", error)
-      throw error
-    }
-
-    if (!chunks || chunks.length === 0) {
-      hasMore = false
-    } else {
-      allChunks = [...allChunks, ...chunks]
-      lastChunkId = chunks[chunks.length - 1].chunk_id
-
-      hasMore = chunks.length === 1000
-    }
-  }
-
-  return allChunks
-}
-
-async function getDocumentChunkCount(documentId: string) {
-  let totalCount = 0
-  let hasMore = true
-  let lastChunkId = null
-
-  while (hasMore) {
-    let query = supabase
-      .from("Ajerbaijian_manual")
-      .select("chunk_id")
-      .like("chunk_id", `${documentId}_%`)
-      .order("chunk_id", { ascending: true })
-      .limit(1000)
-
-    if (lastChunkId) {
-      query = query.gt("chunk_id", lastChunkId)
-    }
-
-    const { data: chunks, error } = await query
-
-    if (error) {
-      console.error("Error counting document chunks:", error)
-      return 0
-    }
-
-    if (!chunks || chunks.length === 0) {
-      hasMore = false
-    } else {
-      totalCount += chunks.length
-      lastChunkId = chunks[chunks.length - 1].chunk_id
-      hasMore = chunks.length === 1000
-    }
-  }
-
-  return totalCount
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -86,18 +14,16 @@ export async function GET(request: NextRequest) {
 
     if (id) {
       try {
-        const chunks = await fetchAllDocumentChunks(id)
+        const chunks = await supabase
+          .from("manual")
+          .select("*")
+          .eq("id", `${id}`)
 
-        if (!chunks || chunks.length === 0) {
+        if (!chunks) {
           return NextResponse.json({ error: "Document not found" }, { status: 404 })
         }
-        const mergedDocument = {
-          ...chunks[0],
-          content: chunks.map((chunk) => chunk.content).join(""),
-          chunk_count: chunks.length,
-        }
 
-        return NextResponse.json({ document: mergedDocument })
+        return NextResponse.json({ document: chunks.data![0] })
       } catch (error) {
         console.error("Error fetching document:", error)
         return NextResponse.json({ error: "Failed to fetch document" }, { status: 500 })
@@ -105,9 +31,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: documentChunks, error: chunksError } = await supabase
-      .from("Ajerbaijian_manual")
-      .select("chunk_id, title, type, language, created_at")
-      .like("chunk_id", "%\\_0")
+      .from("manual")
+      .select("id, title, type, language, created_at, chunk_count")
       .order("created_at", { ascending: true })
 
     // console.log('documentschunks', documentChunks)
@@ -117,32 +42,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch documents" }, { status: 500 })
     }
 
-    const documentIds = documentChunks?.map((chunk) => chunk.chunk_id.split("_")[0]) || []
-    const chunkCounts: Record<string, number> = {}
-
-    if (documentIds.length > 0) {
-      for (const docId of documentIds) {
-        try {
-          const count = await getDocumentChunkCount(docId)
-          chunkCounts[docId] = count
-        } catch (error) {
-          console.error(`Error counting chunks for document ${docId}:`, error)
-          chunkCounts[docId] = 1
-        }
-      }
-    }
-    const documentsWithMetadata =
-      documentChunks?.map((doc) => {
-        const docId = doc.chunk_id.split("_")[0]
-        return {
-          ...doc,
-          content: "",
-          chunk_count: chunkCounts[docId] || 1,
-          document_id: docId,
-        }
-      }) || []
-
-    return NextResponse.json({ documents: documentsWithMetadata })
+    return NextResponse.json({ documents: documentChunks })
   } catch (error) {
     console.error("Error fetching documents:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -161,9 +61,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const documentId = await getNextDocumentId(supabase)
-
     const contentChunks = splitIntoChunks(content)
+
+    const { data, error: documentError } = await supabase
+      .from("manual")
+      .insert({
+        title,
+        type,
+        language,
+        content,
+        chunk_count: contentChunks.length,
+      })
+      .select("id")
+    
+    if(documentError){
+      console.error("Error creating document:", documentError)
+      return NextResponse.json({ error: "Failed to create document" }, { status: 500 })
+    }
+
+    const documentId = data[0].id
+
     const chunkInserts = contentChunks.map((chunkContent, index) => ({
       title,
       content: chunkContent,
@@ -227,12 +144,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const documentIdPrefix = id.split("_")[0]
+    const documentIdPrefix = id
 
     const { data:ids, error } = await supabase
       .from("Ajerbaijian_manual")
       .select("id")
-      .like("chunk_id", `${documentIdPrefix}_%`)
+      .like("chunk_id", `${documentIdPrefix}\\_%`)
 
     if (error) {
       console.error("Error deleting existing document chunks:", error)
@@ -242,7 +159,7 @@ export async function PUT(request: NextRequest) {
     const { error: deleteError } = await supabase
       .from("Ajerbaijian_manual")
       .delete()
-      .like("chunk_id", `${documentIdPrefix}_%`)
+      .like("chunk_id", `${documentIdPrefix}\\_%`)
 
     if (deleteError) {
       console.error("Error deleting existing document chunks:", deleteError)
@@ -250,6 +167,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const contentChunks = splitIntoChunks(content)
+
+    const { error: documentError } = await supabase
+      .from("manual")
+      .update({ title, type, language, content, chunk_count: contentChunks.length })
+      .eq("id", `${documentIdPrefix}`)
 
     const chunkInserts = contentChunks.map((chunkContent, index) => ({
       title,
@@ -264,7 +186,7 @@ export async function PUT(request: NextRequest) {
       .insert(chunkInserts)
       .select()
 
-    if (insertError) {
+    if (insertError || documentError) {
       console.error("Error updating document chunks:", insertError)
       return NextResponse.json({ error: "Failed to update document" }, { status: 500 })
     }
@@ -316,7 +238,7 @@ export async function DELETE(request: NextRequest) {
     const { data:ids, error } = await supabase
       .from("Ajerbaijian_manual")
       .select("id")
-      .like("chunk_id", `${documentIdPrefix}_%`)
+      .like("chunk_id", `${documentIdPrefix}\\_%`)
     const idArray = ids?.map((item) => String(item.id)) || [];
     console.log(idArray)
 
@@ -328,9 +250,14 @@ export async function DELETE(request: NextRequest) {
     const { error: documentError } = await supabase
       .from("Ajerbaijian_manual")
       .delete()
-      .like("chunk_id", `${documentIdPrefix}_%`)
+      .like("chunk_id", `${documentIdPrefix}\\_%`)
 
-    if (documentError) {
+    const { error: deleteError } = await supabase
+      .from("manual")
+      .delete()
+      .eq("id", `${documentIdPrefix}`)
+
+    if (documentError || deleteError) {
       console.error("Error deleting document chunks:", documentError)
       return NextResponse.json({ error: "Failed to delete document" }, { status: 500 })
     }

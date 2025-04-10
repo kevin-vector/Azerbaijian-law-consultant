@@ -254,9 +254,9 @@ export default function DocumentsPage() {
                   </thead>
                   <tbody className="divide-y">
                     {documents.map((document) => {
-                      const docId = document.document_id || document.chunk_id.split("_")[0]
+                      const docId = document.id
                       return (
-                        <tr key={document.chunk_id || document.document_id} className="hover:bg-muted/30">
+                        <tr key={docId || 0} className="hover:bg-muted/30">
                           <td className="p-3 text-sm font-mono">{docId}</td>
                           <td className="p-3 font-medium">{document.title}</td>
                           <td className="p-3">
