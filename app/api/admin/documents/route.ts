@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       .like("chunk_id", "%\\_0")
       .order("created_at", { ascending: true })
 
-    console.log('documentschunks', documentChunks)
+    // console.log('documentschunks', documentChunks)
 
     if (chunksError) {
       console.error("Error fetching document metadata:", chunksError)

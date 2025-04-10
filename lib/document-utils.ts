@@ -130,10 +130,9 @@ export function splitIntoChunks(content: string, maxChunkSize = 1500, overlapSiz
   export async function getNextDocumentId(supabase: any): Promise<string> {
     // Get the highest document ID currently in use
     const { data, error } = await supabase
-      .from("Ajerbaijian_manual")
-      .select("chunk_id")
-      .order("chunk_id", { ascending: false })
-      .limit(1)
+        .from("Ajerbaijian_manual")
+        .select("chunk_id")
+        .like("chunk_id", "%\\_0")
   
     if (error) {
       console.error("Error getting next document ID:", error)
@@ -141,11 +140,16 @@ export function splitIntoChunks(content: string, maxChunkSize = 1500, overlapSiz
     }
   
     let nextId = "1"
-  
+    let highestId = 0
     if (data && data.length > 0) {
-      // Extract the document ID prefix from the highest chunk_id
-      const highestId = data[0].chunk_id.split("_")[0]
-      nextId = (Number.parseInt(highestId) + 1).toString()
+      data.map((chunk: { chunk_id: string }) => {
+        const id = chunk.chunk_id.split("_")[0]
+        const idNum = Number.parseInt(id)
+        if (idNum > highestId) {
+          highestId = idNum
+        }
+      })
+      nextId = (highestId + 1).toString()
     }
   
     return nextId
