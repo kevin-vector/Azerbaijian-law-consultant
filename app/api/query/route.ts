@@ -62,8 +62,8 @@ async function reRankResults(results: any[], query: string) {
       results: formattedResults,
     };
 
-    const response = await fetch('http://157.245.110.21/:8000/rerank', {
-    // const response = await fetch('http://127.0.0.1/:8000/rerank', {
+    // const response = await fetch('http://157.245.110.21:8000/rerank', {
+    const response = await fetch('http://127.0.0.1:8000/rerank', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
