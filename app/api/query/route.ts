@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
-import { lawIndex, ruleIndex, postIndex, manualIndex } from '../../../lib/pinecone';
+import { ruleIndex, postIndex, manualIndex } from '../../../lib/pinecone';
 import { getEmbedding } from '../../../lib/embeddings';
-import { getTokenCount, truncateText } from '../../../lib/tokenizer';
+import { getTokenCount } from '../../../lib/tokenizer';
 import OpenAI from 'openai';
 import {franc} from 'franc';
-import { useState } from 'react';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const TPM_LIMIT = 30000;
@@ -15,10 +14,7 @@ const basePrompt = `You are an advanced professional assistant built to help use
 Respond in the following language: {}.
 
 The user has provided a dataset containing the following retrieved entries:
-- 'Azerbaijian Law': {}  
-- 'Azerbaijian Tax Code': {}
-- 'Social Posts': {}
-- 'Manual Data': {}
+{}
 
 Follow these instructions precisely for every response:
 
@@ -41,9 +37,52 @@ Follow these instructions precisely for every response:
     - Provide concise bullet points.
     - Include clear, brief citations of law titles, sections, or articles without extensive elaboration.
 
-5. Explain clearly every mentioned legal concept with accurate definitions and examples, strictly based on the provided datasets.
+5. For legal concepts, provide clear definitions with examples.
 
 6. If the provided data does not sufficiently address the user's query, respond explicitly with: '{}' in both [Detailed Response] and [Summarized Response] sections. Do not answer any other words. Never.`;
+
+async function reRankResults(results: any[], query: string) {
+  try {
+
+    const formattedResults = results
+      .filter((result) => result && typeof result === 'object')
+      .map((result) => ({
+        ...result,
+        content: result.content || result.text || result.description || result.body || '', // Fallback
+        type: result.type || 'unknown', // Ensure type
+      }));
+
+    if (!formattedResults.length) {
+      console.warn('No valid results to re-rank');
+      return [];
+    }
+
+    const payload = {
+      query: String(query),
+      results: formattedResults,
+    };
+
+    const response = await fetch('http://127.0.0.1:8000/rerank', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('FastAPI error response:', JSON.stringify(errorData, null, 2));
+      throw new Error(`FastAPI request failed: ${response.status}`);
+    }
+
+    const { ranked_results } = await response.json();
+    return ranked_results;
+  } catch (e) {
+    console.error('Re-ranking error:', e);
+    return results.slice(0, 20);
+  }
+}
 
 async function fetchContentFromSupabase(id: number, tableName: string) {
   const table = `Ajerbaijian_${tableName}`;
@@ -55,12 +94,15 @@ async function fetchContentFromSupabase(id: number, tableName: string) {
       .single();
     if (error) throw error;
 
-    // Combine title and content into a single string
-    const combinedContent = `${data?.title ?? 'No title'}\n\n${data?.content ?? 'No content'}`;
-    return combinedContent;
+    return {
+      type: tableName,
+      title: data?.title ?? 'No title',
+      content: data?.content ?? 'No content',
+      combined: `Data type: ${tableName}\nTitle: ${data?.title ?? 'No title'}\nContent: ${data?.content ?? 'No content'}`,
+    };
   } catch (e) {
     console.error(`Supabase error for ${tableName} ID ${id}:`, e);
-    return 'No content found';
+    return null; // Return null instead of string
   }
 }
 
@@ -68,102 +110,51 @@ async function fetchResults(index: any, queryEmbedding: number[], indexName: str
   try {
     const results = await index.query({
       vector: queryEmbedding,
-      topK: 10,
+      topK: 50,
       includeMetadata: true,
     });
-    console.log(`Pinecone results for ${indexName}:`, results);
     const filteredResults = await Promise.all(
       results.matches
-        .filter((match: any) => match.score >= 0.5)
-        .map((match: any) => fetchContentFromSupabase(match.id, indexName))
+        .filter((match : any) => match.score >= 0.6)
+        .map((match : any) => fetchContentFromSupabase(match.id, indexName))
     );
-    return filteredResults.length ? filteredResults : ['No relevant content found'];
+    return filteredResults.filter((result) => result && typeof result === 'object');
   } catch (e) {
     console.error(`Pinecone error for ${indexName}:`, e);
-    return ['No relevant content found'];
+    return [];
   }
 }
 
 async function adjustPromptTokens(
   basePrompt: string,
-  resultsRule: string[],
-  resultsLaw: string[],
-  resultsPost: string[],
-  resultsManual: string[],
+  resultsAll: any[],
   query: string,
   tpmLimit: number
 ) {
   const detected_lang = franc(query);
-  // const lang = detected_lang === 'eng' || detected_lang == "und" ? 'English' : 'Azerbaijani';
   const lang = detected_lang === 'azj' ? 'Azerbaijani' : 'English';
   console.log(`Detected language: ${franc(query)}`);
   const noAnswerMsg =
     lang === 'English' ? 'Please contact a professional' : 'Zəhmət olmasa, peşəkarla əlaqə saxlayın';
 
   let systemPrompt = basePrompt.replace('{}', lang)
-    .replace('{}', resultsRule.join(', '))
-    .replace('{}', resultsLaw.join(', '))
-    .replace('{}', resultsPost.join(', '))
-    .replace('{}', resultsManual.join(', '))
+    .replace('{}', resultsAll.map(r => r.combined).join(', ') || 'No content found')
     .replace('{}', noAnswerMsg);
   let fullInput = systemPrompt + '\n' + query;
   let tokenCount = await getTokenCount(fullInput);
 
   if (tokenCount !== null && tokenCount <= tpmLimit) return systemPrompt;
 
-  let adjustedLaw = [...resultsLaw];
-  let adjustedPost = [...resultsPost];
-  let adjustedRule = [...resultsRule];
-  let adjustedManual = [...resultsManual]
+  let adjusted = [...resultsAll]
 
-  while (adjustedPost.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedPost.shift();
+  while (adjusted.length && tokenCount !== null && tokenCount > tpmLimit) {
+    adjusted.pop();
     systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', adjustedManual.join(', '))
+      .replace('{}', adjusted.map(r => r.combined).join(', ') || 'No content found')
       .replace('{}', noAnswerMsg);
     fullInput = systemPrompt + '\n' + query;
     tokenCount = await getTokenCount(fullInput);
   }
-
-  while (adjustedRule.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedRule.shift();
-    systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', adjustedManual.join(', '))
-      .replace('{}', noAnswerMsg);
-    fullInput = systemPrompt + '\n' + query;
-    tokenCount = await getTokenCount(fullInput);
-  }
-
-  while (adjustedLaw.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedLaw.shift();
-    systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', adjustedManual.join(', '))
-      .replace('{}', noAnswerMsg);
-    fullInput = systemPrompt + '\n' + query;
-    tokenCount = await getTokenCount(fullInput);
-  }
-
-  while (adjustedManual.length && tokenCount !== null && tokenCount > tpmLimit) {
-    adjustedManual.shift();
-    systemPrompt = basePrompt.replace('{}', lang)
-      .replace('{}', adjustedRule.join(', '))
-      .replace('{}', adjustedLaw.join(', '))
-      .replace('{}', adjustedPost.join(', '))
-      .replace('{}', adjustedManual.join(', '))
-      .replace('{}', noAnswerMsg);
-    fullInput = systemPrompt + '\n' + query;
-    tokenCount = await getTokenCount(fullInput);
-  }
-
   return systemPrompt;
 }
 
@@ -173,28 +164,25 @@ export async function POST(req: NextRequest) {
 
   const queryEmbedding = await getEmbedding(query);
 
-  let resultsLaw = []
   let resultsManual = []
   let resultsPost = []
-  let resultsRule = []
+  let resultsLaw = []
 
   if (settings.includeScraping) {
-    resultsLaw = await fetchResults(lawIndex, queryEmbedding, 'law');
     resultsPost = await fetchResults(postIndex, queryEmbedding, 'post');
-    resultsRule = await fetchResults(ruleIndex, queryEmbedding, 'rule');
+    resultsLaw = await fetchResults(ruleIndex, queryEmbedding, 'law');
   }
   if(settings.includeManual){
     resultsManual = await fetchResults(manualIndex, queryEmbedding, 'manual');
   }
   
-  console.log("started prompt adjustion")
+  let resultAll = [...resultsLaw, ...resultsPost, ...resultsManual];
+  resultAll = await reRankResults(resultAll, query);
+  console.log('Re-ranked results:', resultAll.length);
 
   const systemPrompt = await adjustPromptTokens(
     basePrompt,
-    resultsLaw,
-    resultsRule,
-    resultsPost,
-    resultsManual,
+    resultAll,
     query,
     TPM_LIMIT
   );
