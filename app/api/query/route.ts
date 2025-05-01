@@ -81,7 +81,7 @@ async function reRankResults(results: any[], query: string) {
     return ranked_results;
   } catch (e) {
     console.error('Re-ranking error:', e);
-    return results.slice(0, 20);
+    return results.slice(0, 50);
   }
 }
 
@@ -168,16 +168,19 @@ export async function POST(req: NextRequest) {
   let resultsManual = []
   let resultsPost = []
   let resultsLaw = []
+  let resultsRule = []
 
   if (settings.includeScraping) {
     resultsPost = await fetchResults(postIndex, queryEmbedding, 'post');
     resultsLaw = await fetchResults(ruleIndex, queryEmbedding, 'law');
+    resultsRule = await fetchResults(ruleIndex, queryEmbedding, 'rule');
   }
   if(settings.includeManual){
     resultsManual = await fetchResults(manualIndex, queryEmbedding, 'manual');
   }
   
-  let resultAll = [...resultsLaw, ...resultsPost, ...resultsManual];
+  let resultAll = [...resultsLaw, ...resultsPost, ...resultsRule, ...resultsManual];
+  console.log('Initial results:', resultAll.length);
   resultAll = await reRankResults(resultAll, query);
   console.log('Re-ranked results:', resultAll.length);
 

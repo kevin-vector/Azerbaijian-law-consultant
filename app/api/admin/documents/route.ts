@@ -99,24 +99,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create document" }, { status: 500 })
     }
 
-    const pineconeRecords = await Promise.all(
-      insertedChunks.map(async (row) => {
-        const embedding = await getEmbedding(row.content);
-        return {
-          id: row.id.toString(),
-          values: embedding,
-          metadata: {
-            content_id: documentId,
-          },
-        };
-      })
-    );
-  
-    try {
-      await manualIndex.upsert(pineconeRecords);
-      console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
-    } catch (pineconeError) {
-      console.error(`Error managing Pinecone records:`, pineconeError);
+    const batchSize = 200;
+    for (let i = 0; i < insertedChunks.length; i += batchSize) {
+      const batch = insertedChunks.slice(i, i + batchSize);
+      const pineconeRecords = await Promise.all(
+        batch.map(async (row) => {
+          const embedding = await getEmbedding(row.content);
+          return {
+            id: row.id.toString(),
+            values: embedding,
+            metadata: {
+              content_id: documentId,
+            },
+          };
+        })
+      );
+
+      try {
+        await manualIndex.upsert(pineconeRecords);
+        console.log(`Successfully upserted embeddings for batch starting at index ${i}`);
+      } catch (pineconeError) {
+        console.error(`Error managing Pinecone records for batch starting at index ${i}:`, pineconeError);
+      }
+
+      // Optional: Add a delay between batches to avoid hitting rate limits
+      await delay(1000); // Adjust the delay as needed
     }
 
     return NextResponse.json({
@@ -130,6 +137,10 @@ export async function POST(request: NextRequest) {
     console.error("Error creating document:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function PUT(request: NextRequest) {
@@ -191,28 +202,36 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Failed to update document" }, { status: 500 })
     }
 
-    const pineconeRecords = await Promise.all(
-      insertedChunks.map(async (row) => {
-        const embedding = await getEmbedding(row.content);
-        return {
-          id: row.id.toString(),
-          values: embedding,
-          metadata: {
-            content_id: documentIdPrefix,
-          },
-        };
-      })
-    );
-  
     try {
       await manualIndex.deleteMany({content_id:documentIdPrefix});
       console.log(`Successfully deleted existing Pinecone records with content_id: ${documentIdPrefix}`);
-
-      await manualIndex.upsert(pineconeRecords);
-
-      console.log(`Successfully upserted embeddings for Supabase IDs into Pinecone`);
     } catch (pineconeError) {
-      console.error(`Error managing Pinecone records:`, pineconeError);
+      console.error(`Error deleting Pinecone records:`, pineconeError);
+    }
+
+    const batchSize = 200;
+    for (let i = 0; i < insertedChunks.length; i += batchSize) {
+      const batch = insertedChunks.slice(i, i + batchSize);
+
+      const pineconeRecords = await Promise.all(
+        batch.map(async (row) => {
+          const embedding = await getEmbedding(row.content);
+          return {
+            id: row.id.toString(),
+            values: embedding,
+            metadata: {
+              content_id: documentIdPrefix,
+            },
+          };
+        })
+      );
+
+      try {
+        await manualIndex.upsert(pineconeRecords);
+        console.log(`Successfully upserted embeddings for batch starting at index ${i}`);
+      } catch (pineconeError) {
+        console.error(`Error managing Pinecone records for batch starting at index ${i}:`, pineconeError);
+      }
     }
 
     return NextResponse.json({
